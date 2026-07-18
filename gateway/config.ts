@@ -36,12 +36,14 @@ export function loadConfig(): GatewayConfig {
     ? { 'gpt-4o': 'gpt-4o' }
     : { 'claude-sonnet': 'claude-sonnet-4-6' }) as Record<string, string>
 
+  const jwtSecret = Deno.env.get('WINGPORT_JWT_SECRET') ?? Deno.env.get('SUPABASE_JWT_SECRET')
+
   return {
     auth: {
       provider: 'supabase',
       mode: (Deno.env.get('WINGPORT_AUTH_MODE') as AuthMode) ??
-        (Deno.env.get('SUPABASE_JWT_SECRET') ? 'hs256' : 'jwks'),
-      secret: Deno.env.get('SUPABASE_JWT_SECRET'),
+        (jwtSecret ? 'hs256' : 'jwks'),
+      secret: jwtSecret,
       supabaseUrl: Deno.env.get('SUPABASE_URL'),
       requireVerifiedEmail: envBool('WINGPORT_REQUIRE_VERIFIED_EMAIL', false),
       allowAnonymous: envBool('WINGPORT_ALLOW_ANONYMOUS', false),
