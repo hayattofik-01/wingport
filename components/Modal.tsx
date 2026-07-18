@@ -80,7 +80,7 @@ export default function Modal({
     >
       <div
         ref={panelRef}
-        className="w-full max-w-[420px] rounded-2xl border border-wing-border bg-wing-raised p-6 md:p-8"
+        className="relative w-full max-w-[420px] rounded-2xl border border-wing-border bg-wing-raised p-6 md:p-8"
         tabIndex={-1}
       >
         <h2

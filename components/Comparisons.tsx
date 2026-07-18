@@ -30,8 +30,8 @@ export default function Comparisons() {
         <div className="grid gap-6 md:grid-cols-2">
           {cards.map((c) => (
             <div key={c.title} className="rounded-2xl border border-wing-border bg-wing-raised p-6 md:p-8">
-              <h3 className="mb-3 font-display text-lg font-medium text-wing-text">{c.title}</h3>
-              <p className="text-base leading-[1.7] text-wing-dim">{c.body}</p>
+              <h3 className="mb-3 break-words font-display text-lg font-medium text-wing-text">{c.title}</h3>
+              <p className="break-words text-base leading-[1.7] text-wing-dim">{c.body}</p>
             </div>
           ))}
         </div>

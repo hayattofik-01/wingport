@@ -35,13 +35,13 @@ export default function Roadmap() {
           {milestones.map((m, i) => (
             <div
               key={m.title}
-              className="relative rounded-2xl border border-wing-border bg-wing-raised p-6"
+              className="relative overflow-hidden rounded-2xl border border-wing-border bg-wing-raised p-6"
             >
               {i < milestones.length - 1 && (
                 <div className="hidden md:block absolute top-1/2 -right-2 h-[2px] w-4 bg-wing-border" aria-hidden="true" />
               )}
               <span
-                className={`mb-3 inline-block rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${
+                className={`mb-3 inline-block min-w-0 max-w-full break-words rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${
                   m.status === 'in progress'
                     ? 'bg-wing-warn/15 text-wing-warn'
                     : 'bg-wing-raised text-wing-dim border border-wing-border'
@@ -49,8 +49,8 @@ export default function Roadmap() {
               >
                 {m.status}
               </span>
-              <h3 className="mb-2 font-display text-base font-medium text-wing-text">{m.title}</h3>
-              <p className="text-sm leading-relaxed text-wing-dim">{m.desc}</p>
+              <h3 className="mb-2 break-words font-display text-base font-medium text-wing-text">{m.title}</h3>
+              <p className="break-words text-sm leading-relaxed text-wing-dim">{m.desc}</p>
             </div>
           ))}
         </div>

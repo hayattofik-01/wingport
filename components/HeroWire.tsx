@@ -293,7 +293,7 @@ export default function HeroWire() {
         <div className="relative w-[190px] shrink-0 rounded-3xl border border-wing-border bg-wing-raised p-5">
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-wing-border" aria-hidden="true" />
           <div className="flex flex-col gap-2">
-            <div className="self-end rounded-xl bg-wing-signal/15 px-3 py-2 text-sm text-wing-signal">
+            <div className="max-w-[80%] self-end rounded-xl bg-wing-signal/15 px-3 py-2 text-sm text-wing-signal break-words">
               Write my resume
             </div>
             <div
@@ -307,7 +307,7 @@ export default function HeroWire() {
               <ContextChip icon={Briefcase}>job posting</ContextChip>
             </div>
             <div
-              className="min-h-[4.5rem] rounded-xl border border-wing-border bg-wing-bg px-3 py-2 text-sm text-wing-text"
+              className="min-h-[4.5rem] rounded-xl border border-wing-border bg-wing-bg px-3 py-2 text-sm text-wing-text break-words"
               style={{ opacity: anim.current.answer.opacity }}
             >
               {anim.current.answer.text}
@@ -343,20 +343,20 @@ export default function HeroWire() {
         </div>
 
         {/* Wingport node */}
-        <div className="relative z-10 w-[180px] shrink-0 rounded-2xl border border-wing-signal bg-wing-raised p-4 text-center">
+        <div className="relative z-10 w-[180px] min-w-0 shrink-0 rounded-2xl border border-wing-signal bg-wing-raised p-4 text-center">
           <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-full border border-wing-signal/30">
             <Lock
               className={`h-[22px] w-[22px] text-wing-signal ${anim.current.lockPulse ? 'animate-pulse-scale' : ''}`}
               aria-hidden="true"
             />
           </div>
-          <p className="font-display text-base font-medium text-wing-text">Wingport</p>
-          <p className="text-[11px] leading-relaxed text-wing-dim">
+          <p className="break-words font-display text-base font-medium text-wing-text">Wingport</p>
+          <p className="break-words text-[11px] leading-relaxed text-wing-dim">
             checks who&apos;s asking · keys stay here
           </p>
-          <div className="mt-2 min-h-[16px]">
+          <div className="mt-2 min-h-[2.5rem]">
             <p
-              className="text-[11px] text-wing-signal transition-opacity duration-200"
+              className="break-words text-[11px] leading-tight text-wing-signal transition-opacity duration-200"
               style={{ opacity: anim.current.status.opacity }}
               aria-live="polite"
             >
@@ -381,15 +381,15 @@ export default function HeroWire() {
         </div>
 
         {/* AI node */}
-        <div className="w-[130px] shrink-0 rounded-2xl border border-wing-ai bg-wing-raised p-4 text-center">
+        <div className="w-[130px] min-w-0 shrink-0 rounded-2xl border border-wing-ai bg-wing-raised p-4 text-center">
           <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full border border-wing-ai/30">
             <Sparkles
-              className={`h-5 w-5 text-wing-ai ${anim.current.aiSparkle ? 'animate-sparkle-pulse' : ''}`}
+              className={`h-5 w-5 text-wing-ai ${anim.current.aiSparkle ? 'animate-pulse-scale' : ''}`}
               aria-hidden="true"
             />
           </div>
-          <p className="font-display text-base font-medium text-wing-text">AI</p>
-          <p className="text-[11px] text-wing-dim">any model</p>
+          <p className="break-words font-display text-base font-medium text-wing-text">AI</p>
+          <p className="break-words text-[11px] text-wing-dim">any model</p>
         </div>
       </div>
 
@@ -405,8 +405,8 @@ function ContextChip({
   children: React.ReactNode
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-wing-signal/50 px-2 py-1 text-[11px] text-wing-signal">
-      <Icon className="h-3 w-3" />
+    <span className="inline-flex max-w-full items-center gap-1.5 whitespace-normal rounded-full border border-wing-signal/50 px-2 py-1 text-[11px] text-wing-signal break-words">
+      <Icon className="h-3 w-3 shrink-0" />
       {children}
     </span>
   )
@@ -494,7 +494,7 @@ function ReducedMotionHero() {
         <div className="relative w-[190px] shrink-0 rounded-3xl border border-wing-border bg-wing-raised p-5">
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-wing-border" aria-hidden="true" />
           <div className="flex flex-col gap-2">
-            <div className="self-end rounded-xl bg-wing-signal/15 px-3 py-2 text-sm text-wing-signal">
+            <div className="max-w-[80%] self-end rounded-xl bg-wing-signal/15 px-3 py-2 text-sm text-wing-signal break-words">
               Write my resume
             </div>
             <div className="flex flex-wrap justify-end gap-1.5">

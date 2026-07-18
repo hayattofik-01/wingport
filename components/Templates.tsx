@@ -31,7 +31,7 @@ export default function Templates() {
   resume_generator: {
     model: "claude-sonnet",
     system: "You are an expert resume writer...",
-    user: "Write a resume for:\n{{profile}}\n\nTargeting:\n{{job}}",
+    user: "Write a resume for:\\n{{profile}}\\n\\nTargeting:\\n{{job}}",
     inputs: { profile: "json", job: "string" },
   },
 }`}
@@ -39,7 +39,7 @@ export default function Templates() {
           </pre>
         </div>
 
-        <div className="mb-8 rounded-lg border border-wing-border bg-wing-bg px-4 py-3 font-mono text-sm text-wing-text md:inline-block md:px-6">
+        <div className="mb-8 max-w-full overflow-x-auto whitespace-nowrap rounded-lg border border-wing-border bg-wing-bg px-4 py-3 font-mono text-sm text-wing-text md:inline-block md:px-6">
           await wing.run(&apos;resume_generator&apos;, inputs: {'{'}&apos;profile&apos;: user.toJson(), &apos;job&apos;: job{'}'});
         </div>
 
@@ -49,7 +49,7 @@ export default function Templates() {
               <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-wing-signal/10 text-wing-signal">
                 <Check className="h-3.5 w-3.5" />
               </span>
-              <span className="text-base leading-[1.6] text-wing-dim">{p}</span>
+              <span className="break-words text-base leading-[1.6] text-wing-dim">{p}</span>
             </li>
           ))}
         </ul>

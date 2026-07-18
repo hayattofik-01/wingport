@@ -12,17 +12,17 @@ export default function NoMiddleman() {
         <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
           {/* Architecture diagram */}
           <div className="rounded-2xl border border-wing-border bg-wing-raised p-6 md:p-8">
-            <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
+            <div className="flex flex-col items-center gap-6 md:flex-row md:items-stretch md:justify-between md:gap-0">
               <Node label="Flutter app" sub="no keys in the binary" />
               <Wire />
               <Box>
-                <p className="mb-3 text-center text-sm font-medium text-wing-text">Your Supabase project</p>
-                <div className="grid grid-cols-3 gap-2">
+                <p className="mb-3 text-center text-sm font-medium text-wing-text break-words">Your Supabase project</p>
+                <div className="grid min-w-0 grid-cols-3 gap-2">
                   <TinyNode>Auth</TinyNode>
                   <TinyNode>Postgres</TinyNode>
                   <TinyNode>Secrets</TinyNode>
                 </div>
-                <div className="mx-auto mt-3 w-fit rounded border border-wing-signal/40 px-3 py-1 text-xs text-wing-signal">
+                <div className="mx-auto mt-3 w-fit min-w-0 max-w-full rounded border border-wing-signal/40 px-3 py-1 text-center text-xs text-wing-signal break-words">
                   Wingport gateway
                 </div>
               </Box>
@@ -64,16 +64,16 @@ function Node({
   const color = accent === 'signal' ? 'border-wing-signal' : 'border-wing-ai'
   const textColor = accent === 'signal' ? 'text-wing-signal' : 'text-wing-ai'
   return (
-    <div className={`w-full rounded-xl border ${color} bg-wing-bg p-4 text-center md:w-[140px]`}>
-      <p className="font-display text-sm font-medium text-wing-text">{label}</p>
-      <p className={`text-xs ${textColor}`}>{sub}</p>
+    <div className={`min-w-0 w-full rounded-xl border ${color} bg-wing-bg p-4 text-center md:w-[140px]`}>
+      <p className="break-words font-display text-sm font-medium text-wing-text">{label}</p>
+      <p className={`break-words text-xs ${textColor}`}>{sub}</p>
     </div>
   )
 }
 
 function Box({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-full rounded-xl border border-wing-border bg-wing-bg p-4 md:w-[260px]">
+    <div className="min-w-0 w-full rounded-xl border border-wing-border bg-wing-bg p-4 md:w-[260px]">
       {children}
     </div>
   )
@@ -81,14 +81,14 @@ function Box({ children }: { children: React.ReactNode }) {
 
 function TinyNode({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded border border-wing-border bg-wing-raised px-2 py-2 text-center text-[10px] text-wing-dim">
+    <div className="min-w-0 break-words rounded border border-wing-border bg-wing-raised px-2 py-2 text-center text-[10px] text-wing-dim">
       {children}
     </div>
   )
 }
 
 function Wire() {
-  return <div className="h-8 w-[2px] bg-wing-border md:h-[2px] md:w-10 md:flex-1" />
+  return <div className="h-8 w-[2px] min-w-0 bg-wing-border md:h-[2px] md:w-auto md:flex-1" />
 }
 
 function TrustRow({ icon: Icon, children }: { icon: any; children: React.ReactNode }) {
@@ -97,7 +97,7 @@ function TrustRow({ icon: Icon, children }: { icon: any; children: React.ReactNo
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-wing-border bg-wing-raised">
         <Icon className="h-5 w-5 text-wing-signal" />
       </div>
-      <p className="pt-2 text-base leading-[1.6] text-wing-dim">{children}</p>
+      <p className="min-w-0 pt-2 text-base leading-[1.6] text-wing-dim break-words">{children}</p>
     </div>
   )
 }

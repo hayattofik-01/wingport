@@ -41,8 +41,8 @@ export default function HowItWorks() {
               <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-wing-dim">
                 Step {s.num}
               </p>
-              <h3 className="mb-3 font-display text-lg font-medium text-wing-text">{s.title}</h3>
-              <p className="text-base leading-[1.7] text-wing-dim">{s.body}</p>
+              <h3 className="mb-3 break-words font-display text-lg font-medium text-wing-text">{s.title}</h3>
+              <p className="break-words text-base leading-[1.7] text-wing-dim">{s.body}</p>
             </div>
           ))}
         </div>

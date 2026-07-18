@@ -18,7 +18,7 @@ export default function Banner() {
   return (
     <div className="sticky top-0 z-50 bg-wing-raised/95 backdrop-blur-sm">
       <div className="mx-auto flex max-w-[1080px] items-center gap-3 border-l-4 border-wing-warn px-6 py-3">
-        <p className="flex-1 text-sm text-wing-text">
+        <p className="min-w-0 flex-1 break-words text-sm text-wing-text">
           🚧 Wingport is in active development, built in public. This page describes v0.1, shipping in weeks —{' '}
           <a
             href={GITHUB_URL}

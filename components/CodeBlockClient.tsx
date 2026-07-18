@@ -12,7 +12,7 @@ export default function CodeBlockClient({
   const [tab, setTab] = useState<'gateway' | 'flutter'>('gateway')
 
   return (
-    <div className="rounded-2xl border border-wing-border bg-wing-raised overflow-hidden">
+    <div className="min-w-0 max-w-full rounded-2xl border border-wing-border bg-wing-raised overflow-hidden">
       <div
         className="flex items-center border-b border-wing-border"
         role="tablist"

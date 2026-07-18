@@ -58,8 +58,8 @@ function Chip({
   children: React.ReactNode
 }) {
   return (
-    <span className="inline-flex h-9 items-center gap-2 rounded-full border border-wing-border px-4 text-sm text-wing-dim">
-      <Icon className="h-4 w-4 text-wing-signal" />
+    <span className="inline-flex h-9 max-w-full items-center gap-2 whitespace-normal rounded-full border border-wing-border px-4 text-sm text-wing-dim break-words">
+      <Icon className="h-4 w-4 shrink-0 text-wing-signal" />
       {children}
     </span>
   )
