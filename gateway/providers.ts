@@ -7,6 +7,7 @@ import type {
 import { anthropicAdapter, toProviderRequest } from './adapters/anthropic.ts'
 import { parseSSE } from './sse.ts'
 import { ProviderError } from './handlers/generate.ts'
+import { loadConfig, type GatewayConfig } from './config.ts'
 
 export type Provider = {
   name: string
@@ -21,19 +22,16 @@ export type Provider = {
   ) => Promise<void>
 }
 
-export function getProviderForAlias(modelAlias: string): Provider | undefined {
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-  const baseUrl = Deno.env.get('ANTHROPIC_BASE_URL') ?? 'https://api.anthropic.com'
-
-  const modelMap: Record<string, string> = {
-    'claude-sonnet': 'claude-sonnet-4-6',
-  }
-
-  if (!apiKey) {
+export function getProviderForAlias(
+  modelAlias: string,
+  cfg: GatewayConfig = loadConfig()
+): Provider | undefined {
+  const providerCfg = cfg.provider
+  if (!providerCfg.apiKey) {
     throw new ProviderError('provider_error', 'ANTHROPIC_API_KEY is not set')
   }
 
-  const adapter = anthropicAdapter(apiKey, baseUrl, modelMap)
+  const adapter = anthropicAdapter(providerCfg.apiKey, providerCfg.baseUrl, providerCfg.modelMap)
   const modelId = adapter.resolveModel(modelAlias)
   if (!modelId) return undefined
 

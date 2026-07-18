@@ -1,8 +1,9 @@
 import type { Context, Middleware } from './types.ts'
+import { authMiddleware } from './middleware/auth.ts'
 import { router } from './router.ts'
 
 const middlewares: Middleware[] = [
-  // T3: auth middleware will be inserted here.
+  authMiddleware(),
   // T4: quota middleware will be inserted here.
   router,
 ]

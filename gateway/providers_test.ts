@@ -1,21 +1,42 @@
 import { assertEquals, assertStringIncludes } from '@std/assert'
+import * as jose from 'jose'
 import { app } from './main.ts'
 import { makeProvider } from './providers.ts'
 import { anthropicAdapter } from './adapters/anthropic.ts'
 import type { GenerateRequest, StreamChunk } from './types.ts'
 
-
 class Deferred<T = void> {
   promise: Promise<T>
   resolve!: (value: T) => void
   reject!: (reason?: unknown) => void
-
   constructor() {
     this.promise = new Promise((res, rej) => {
       this.resolve = res
       this.reject = rej
     })
   }
+}
+
+const HS_SECRET = 'this-is-a-test-secret-which-is-32-bytes!'
+
+async function signTestToken(claims: Record<string, unknown> = {}): Promise<string> {
+  return await new jose.SignJWT({ sub: 'user-123', ...claims })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('5m')
+    .sign(new TextEncoder().encode(HS_SECRET))
+}
+
+function setEndpointEnv(env: Record<string, string>) {
+  Deno.env.set('SUPABASE_JWT_SECRET', HS_SECRET)
+  Deno.env.set('ANTHROPIC_API_KEY', env.ANTHROPIC_API_KEY ?? 'test-key')
+  if (env.ANTHROPIC_BASE_URL) Deno.env.set('ANTHROPIC_BASE_URL', env.ANTHROPIC_BASE_URL)
+}
+
+function clearEndpointEnv() {
+  Deno.env.delete('SUPABASE_JWT_SECRET')
+  Deno.env.delete('ANTHROPIC_API_KEY')
+  Deno.env.delete('ANTHROPIC_BASE_URL')
 }
 
 type MockServer = {
@@ -90,9 +111,7 @@ Deno.test('stream yields deltas and terminal usage', async () => {
           'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end"},"usage":{"output_tokens":4}}\n\n'
         )
       )
-      controller.enqueue(
-        new TextEncoder().encode('event: message_stop\ndata: {"type":"message_stop"}\n\n')
-      )
+      controller.enqueue(new TextEncoder().encode('event: message_stop\ndata: {"type":"message_stop"}\n\n'))
       controller.close()
     },
   })
@@ -126,89 +145,106 @@ Deno.test('stream yields deltas and terminal usage', async () => {
     assertEquals(chunks, [
       { delta: 'Hel' },
       { delta: 'lo' },
-      { done: true, usage: { inputTokens: 2, outputTokens: 4, totalTokens: 6 }, finishReason: 'end' },
+      {
+        done: true,
+        usage: { inputTokens: 2, outputTokens: 4, totalTokens: 6 },
+        finishReason: 'end',
+      },
     ])
   } finally {
     await mock.shutdown()
   }
 })
 
-Deno.test('passthrough: first client byte before server finishes', async () => {
-  const afterFirst = new Deferred()
-  const body = new ReadableStream({
-    async start(controller) {
-      controller.enqueue(
-        new TextEncoder().encode(
-          'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hel"}}\n\n'
+Deno.test('endpoint integration', async (t) => {
+  await t.step('passthrough: first client byte before server finishes', async () => {
+    clearEndpointEnv()
+    const afterFirst = new Deferred()
+    const body = new ReadableStream({
+      async start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hel"}}\n\n'
+          )
         )
-      )
-      await afterFirst.promise
-      controller.enqueue(
-        new TextEncoder().encode(
-          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end"},"usage":{"output_tokens":4}}\n\n'
+        await afterFirst.promise
+        controller.enqueue(
+          new TextEncoder().encode(
+            'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end"},"usage":{"output_tokens":4}}\n\n'
+          )
         )
-      )
-      controller.enqueue(new TextEncoder().encode('event: message_stop\ndata: {"type":"message_stop"}\n\n'))
-      controller.close()
-    },
+        controller.enqueue(new TextEncoder().encode('event: message_stop\ndata: {"type":"message_stop"}\n\n'))
+        controller.close()
+      },
+    })
+
+    const handler = (req: Request): Response => {
+      assertEquals(req.url.endsWith('/v1/messages'), true)
+      return new Response(body, {
+        headers: { 'Content-Type': 'text/event-stream' },
+      })
+    }
+
+    const mock = startMockAnthropic(handler)
+    try {
+      setEndpointEnv({ ANTHROPIC_BASE_URL: mock.url, ANTHROPIC_API_KEY: 'test-key' })
+      const token = await signTestToken()
+
+      const req: GenerateRequest = { model: 'claude-sonnet', prompt: 'Hello' }
+      const res = await app(new Request('http://localhost/v1/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(req),
+      }))
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let firstChunkReceived = false
+
+      // Read until the first complete SSE event.
+      while (!firstChunkReceived) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        if (buffer.includes('\n\n')) firstChunkReceived = true
+      }
+
+      assertEquals(firstChunkReceived, true)
+      assertStringIncludes(buffer, 'data:')
+
+      // Allow the mock to finish.
+      afterFirst.resolve()
+
+      // Drain the rest.
+      while (true) {
+        const { done } = await reader.read()
+        if (done) break
+      }
+    } finally {
+      await mock.shutdown()
+      clearEndpointEnv()
+    }
   })
 
-  const handler = (req: Request): Response => {
-    assertEquals(req.url.endsWith('/v1/messages'), true)
-    return new Response(body, {
-      headers: { 'Content-Type': 'text/event-stream' },
-    })
-  }
-
-  const mock = startMockAnthropic(handler)
-  try {
-    Deno.env.set('ANTHROPIC_BASE_URL', mock.url)
-    Deno.env.set('ANTHROPIC_API_KEY', 'test-key')
-
-    const req: GenerateRequest = { model: 'claude-sonnet', prompt: 'Hello' }
-    const res = await app(new Request('http://localhost/v1/stream', {
+  await t.step('model not allowed returns 403', async () => {
+    clearEndpointEnv()
+    setEndpointEnv({ ANTHROPIC_API_KEY: 'test-key' })
+    const token = await signTestToken()
+    const res = await app(new Request('http://localhost/v1/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ model: 'unknown-model' }),
     }))
-
-    const reader = res.body!.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    let firstChunkReceived = false
-
-    // Read until the first complete SSE event.
-    while (!firstChunkReceived) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      if (buffer.includes('\n\n')) firstChunkReceived = true
-    }
-
-    assertEquals(firstChunkReceived, true)
-    assertStringIncludes(buffer, 'data:')
-
-    // Allow the mock to finish.
-    afterFirst.resolve()
-
-    // Drain the rest.
-    while (true) {
-      const { done } = await reader.read()
-      if (done) break
-    }
-  } finally {
-    await mock.shutdown()
-  }
-})
-
-Deno.test('model not allowed returns 403', async () => {
-  Deno.env.set('ANTHROPIC_API_KEY', 'test-key')
-  const res = await app(new Request('http://localhost/v1/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'unknown-model' }),
-  }))
-  assertEquals(res.status, 403)
-  const body = await res.json()
-  assertEquals(body.error.code, 'model_not_allowed')
+    assertEquals(res.status, 403)
+    const body = await res.json()
+    assertEquals(body.error.code, 'model_not_allowed')
+    clearEndpointEnv()
+  })
 })

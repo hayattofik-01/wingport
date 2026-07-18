@@ -1,6 +1,10 @@
 # Wingport Gateway
 
-Supabase Edge Function gateway. Ticket T2 implements `/v1/generate` and `/v1/stream` with an Anthropic adapter, fixture-driven tests, and a middleware pipeline ready for T3/T4.
+Supabase Edge Function gateway.
+
+- Ticket T2: `/v1/generate` and `/v1/stream` with an Anthropic adapter.
+- Ticket T3: Supabase JWT auth middleware (HS256 secret or JWKS).
+- Middleware pipeline is ready for T4 quotas.
 
 ## Run locally
 
@@ -23,6 +27,24 @@ The test suite runs fixture-driven mocks of Anthropic, including:
 - SSE event fragmentation
 - mid-UTF-8 character splits
 - passthrough: the first client byte is emitted before the mock server finishes sending
+
+## Auth configuration
+
+The middleware supports two modes:
+
+- `HS256` (default if `SUPABASE_JWT_SECRET` is set): verify tokens with the project's JWT secret.
+- `JWKS` (default otherwise): fetch `SUPABASE_URL/auth/v1/.well-known/jwks.json` and cache keys.
+
+Override with `WINGPORT_AUTH_MODE=hs256` or `WINGPORT_AUTH_MODE=jwks`.
+
+| Variable | Purpose |
+|----------|---------|
+| `SUPABASE_JWT_SECRET` | HS256 secret |
+| `SUPABASE_URL` | Supabase project URL (used for JWKS) |
+| `WINGPORT_AUTH_MODE` | `hs256` or `jwks` |
+| `WINGPORT_ALLOW_ANONYMOUS` | `true` or `false` (default `false`) |
+| `WINGPORT_REQUIRE_VERIFIED_EMAIL` | `true` or `false` (default `false`) |
+| `WINGPORT_TIER_CLAIM` | JWT claim used for the tier (default `app_tier`) |
 
 ## Manual curl against a mock (no real API key)
 
@@ -53,17 +75,24 @@ HTTPServer(('127.0.0.1', 9000), H).serve_forever()
 PY
 
 # Terminal 2 — run the gateway against the mock
-ANTHROPIC_BASE_URL=http://127.0.0.1:9000 ANTHROPIC_API_KEY=mock deno task dev
+ANTHROPIC_BASE_URL=http://127.0.0.1:9000 \
+ANTHROPIC_API_KEY=mock \
+SUPABASE_JWT_SECRET=this-is-a-test-secret-which-is-32-bytes! \
+deno task dev
 
 # Terminal 3 — generate (non-streaming)
 curl -X POST http://localhost:8000/v1/generate \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <valid-supabase-jwt>' \
   -d '{"model":"claude-sonnet","prompt":"say hi"}'
 
 # Terminal 3 — stream
 curl -N -X POST http://localhost:8000/v1/stream \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <valid-supabase-jwt>' \
   -d '{"model":"claude-sonnet","prompt":"say hi"}'
 ```
+
+The JWT must be signed with `SUPABASE_JWT_SECRET` for the HS256 path. In Supabase the token is returned by `supabase.auth.getSession()`.
 
 Replace `claude-sonnet` with the alias you configure in the gateway. The current default model map is `claude-sonnet -> claude-sonnet-4-6`.
