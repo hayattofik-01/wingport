@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a problem with Wingport.
+labels: ['bug']
+body:
+  - type: input
+    attributes:
+      label: Wingport SDK version
+      description: e.g. 0.1.0
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Flutter / Dart version
+      description: Output of `flutter --version` or `dart --version`.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Gateway deploy target
+      description: e.g. Supabase edge functions, local Deno, or other.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction steps
+      description: Minimal steps or a small code sample that reproduces the issue.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Actual behavior / logs
+      description: Include error messages, stack traces, and any relevant logs.
+    validations:
+      required: true
