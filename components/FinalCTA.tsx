@@ -1,6 +1,11 @@
+'use client'
+
+import { useModal } from './ModalProvider'
 import { GITHUB_URL } from '@/lib/site'
 
-export default function FinalCTA({ onOpenModal }: { onOpenModal: () => void }) {
+export default function FinalCTA() {
+  const { open } = useModal()
+
   return (
     <section className="px-6 py-24 md:py-32">
       <div className="mx-auto max-w-[700px] rounded-2xl border border-wing-border bg-wing-raised px-6 py-16 text-center md:px-12 md:py-20">
@@ -12,7 +17,7 @@ export default function FinalCTA({ onOpenModal }: { onOpenModal: () => void }) {
         </p>
         <button
           type="button"
-          onClick={onOpenModal}
+          onClick={open}
           className="mb-4 inline-flex h-11 items-center justify-center rounded-full bg-wing-signal px-8 text-base font-medium text-wing-bg transition-colors hover:bg-[#2ecc7a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wing-signal"
         >
           Get early access

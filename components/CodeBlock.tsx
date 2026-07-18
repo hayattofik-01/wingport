@@ -22,7 +22,7 @@ await for (final chunk in wing.stream(
   model: 'claude-sonnet',
   prompt: 'Summarize my day',
 )) {
-  setState(() => reply += chunk.text);
+  setState(() => reply += chunk.delta ?? '');
 }`
 
 export default async function CodeBlock() {

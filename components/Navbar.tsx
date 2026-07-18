@@ -1,7 +1,12 @@
+'use client'
+
 import { Github } from 'lucide-react'
+import { useModal } from './ModalProvider'
 import { DOCS_URL, GITHUB_URL } from '@/lib/site'
 
-export default function Navbar({ onOpenModal }: { onOpenModal: () => void }) {
+export default function Navbar() {
+  const { open } = useModal()
+
   return (
     <header className="border-b border-wing-border bg-wing-bg/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1080px] items-center justify-between px-6 py-4">
@@ -11,6 +16,12 @@ export default function Navbar({ onOpenModal }: { onOpenModal: () => void }) {
         </a>
 
         <nav className="hidden items-center gap-6 md:flex" aria-label="Main navigation">
+          <a
+            href="#pain"
+            className="text-sm font-medium text-wing-dim transition-colors hover:text-wing-text"
+          >
+            Why
+          </a>
           <a
             href={DOCS_URL}
             className="text-sm font-medium text-wing-dim transition-colors hover:text-wing-text"
@@ -36,7 +47,7 @@ export default function Navbar({ onOpenModal }: { onOpenModal: () => void }) {
           </a>
           <button
             type="button"
-            onClick={onOpenModal}
+            onClick={open}
             className="rounded-full border border-wing-signal px-5 py-2.5 text-sm font-medium text-wing-signal transition-colors hover:bg-wing-signal/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wing-signal"
           >
             Get early access
@@ -54,8 +65,8 @@ export default function Navbar({ onOpenModal }: { onOpenModal: () => void }) {
           </a>
           <button
             type="button"
-            onClick={onOpenModal}
-            className="inline-flex h-11 items-center justify-center rounded-full bg-wing-signal px-4 text-sm font-medium text-wing-bg transition-colors hover:bg-[#2ecc7a]"
+            onClick={open}
+            className="inline-flex h-11 items-center justify-center rounded-full border border-wing-signal px-4 text-sm font-medium text-wing-signal transition-colors hover:bg-wing-signal/10"
           >
             Get early access
           </button>

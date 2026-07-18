@@ -17,13 +17,13 @@ export default function NoMiddleman() {
               <Wire />
               <Box>
                 <p className="mb-3 text-center text-sm font-medium text-wing-text break-words">Your Supabase project</p>
+                <div className="mx-auto mb-3 w-fit min-w-0 max-w-full rounded border border-wing-signal/40 px-3 py-1 text-center text-xs text-wing-signal break-words">
+                  Wingport gateway
+                </div>
                 <div className="grid min-w-0 grid-cols-3 gap-2">
                   <TinyNode>Auth</TinyNode>
                   <TinyNode>Postgres</TinyNode>
                   <TinyNode>Secrets</TinyNode>
-                </div>
-                <div className="mx-auto mt-3 w-fit min-w-0 max-w-full rounded border border-wing-signal/40 px-3 py-1 text-center text-xs text-wing-signal break-words">
-                  Wingport gateway
                 </div>
               </Box>
               <Wire />

@@ -1,8 +1,13 @@
+'use client'
+
+import { useModal } from './ModalProvider'
 import HeroWire from './HeroWire'
 import { ServerOff, KeyRound, ShieldCheck, WifiOff } from 'lucide-react'
 import { GITHUB_URL } from '@/lib/site'
 
-export default function Hero({ onOpenModal }: { onOpenModal: () => void }) {
+export default function Hero() {
+  const { open } = useModal()
+
   return (
     <section className="relative overflow-hidden px-6 pt-16 pb-24 md:pt-24 md:pb-32">
       <div className="mx-auto max-w-[1080px]">
@@ -20,7 +25,7 @@ export default function Hero({ onOpenModal }: { onOpenModal: () => void }) {
         <div className="mt-10 flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={onOpenModal}
+            onClick={open}
             className="inline-flex h-11 items-center justify-center rounded-full bg-wing-signal px-6 text-sm font-medium text-wing-bg transition-colors hover:bg-[#2ecc7a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wing-signal"
           >
             Get early access
@@ -34,6 +39,10 @@ export default function Hero({ onOpenModal }: { onOpenModal: () => void }) {
             View on GitHub
           </a>
         </div>
+
+        <p className="mt-4 text-xs text-wing-dim">
+          MIT licensed · Runs in your Supabase · Built in public
+        </p>
 
         <div className="mt-16">
           <HeroWire />
@@ -58,8 +67,8 @@ function Chip({
   children: React.ReactNode
 }) {
   return (
-    <span className="inline-flex h-9 max-w-full items-center gap-2 whitespace-normal rounded-full border border-wing-border px-4 text-sm text-wing-dim break-words">
-      <Icon className="h-4 w-4 shrink-0 text-wing-signal" />
+    <span className="inline-flex max-w-full items-center gap-2 whitespace-normal rounded-full border border-wing-border px-4 py-2 text-sm text-wing-dim break-words">
+      <Icon className="h-[14px] w-[14px] shrink-0 text-wing-signal" />
       {children}
     </span>
   )

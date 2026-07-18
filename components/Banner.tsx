@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { GITHUB_URL } from '@/lib/site'
 
@@ -8,21 +8,34 @@ export default function Banner() {
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setDismissed(window.sessionStorage.getItem('wingport-banner') === 'dismissed')
+    try {
+      if (sessionStorage.getItem('wingport-banner-dismissed') === '1') {
+        setDismissed(true)
+      }
+    } catch {
+      // ignore
     }
   }, [])
+
+  const dismiss = () => {
+    setDismissed(true)
+    try {
+      sessionStorage.setItem('wingport-banner-dismissed', '1')
+    } catch {
+      // ignore
+    }
+  }
 
   if (dismissed) return null
 
   return (
-    <div className="sticky top-0 z-50 bg-wing-raised/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-[1080px] items-center gap-3 border-l-4 border-wing-warn px-6 py-3">
-        <p className="min-w-0 flex-1 break-words text-sm text-wing-text">
+    <div className="sticky top-0 z-50 border-b border-wing-border bg-wing-raised">
+      <div className="mx-auto flex max-w-[1080px] items-start gap-3 border-l-4 border-wing-warn px-6 py-3">
+        <p className="flex-1 text-sm leading-relaxed text-wing-text">
           🚧 Wingport is in active development, built in public. This page describes v0.1, shipping in weeks —{' '}
           <a
             href={GITHUB_URL}
-            className="text-wing-signal underline underline-offset-2 hover:no-underline"
+            className="underline underline-offset-2 hover:text-wing-signal"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -32,16 +45,11 @@ export default function Banner() {
         </p>
         <button
           type="button"
-          onClick={() => {
-            setDismissed(true)
-            if (typeof window !== 'undefined') {
-              window.sessionStorage.setItem('wingport-banner', 'dismissed')
-            }
-          }}
+          onClick={dismiss}
           aria-label="Dismiss status banner"
-          className="inline-flex h-11 w-11 items-center justify-center rounded p-1 text-wing-dim hover:text-wing-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wing-signal"
+          className="shrink-0 text-wing-dim transition-colors hover:text-wing-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wing-signal"
         >
-          <X className="h-4 w-4" />
+          <X className="h-5 w-5" />
         </button>
       </div>
     </div>
