@@ -1,10 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Bricolage_Grotesque } from 'next/font/google'
-import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
-import { GITHUB_URL, DOCS_URL } from '@/lib/site'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -30,19 +28,19 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Wingport — Ship AI features. Skip the backend.',
   description:
-    'Open-source AI layer for Flutter apps. Deploys into your own Supabase — your keys, your database, no middleman. One SDK call streams any model into your app.',
+    'Open-source AI layer for Flutter apps. Deploys into your own Supabase — your keys, your data, no middleman. One SDK call streams any model into your app.',
   metadataBase: new URL('https://wingport.dev'),
   openGraph: {
     title: 'Wingport — Ship AI features. Skip the backend.',
     description:
-      'Open-source AI layer for Flutter apps. Deploys into your own Supabase — your keys, your database, no middleman.',
+      'Open-source AI layer for Flutter apps. Deploys into your own Supabase — your keys, your data, no middleman. One SDK call streams any model into your app.',
     url: 'https://wingport.dev',
     siteName: 'Wingport',
     images: [
       {
         url: '/og.png',
         width: 1200,
-        height: 640,
+        height: 630,
         alt: 'Wingport — the safe wire between your app and AI',
       },
     ],
@@ -53,7 +51,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Wingport — Ship AI features. Skip the backend.',
     description:
-      'Open-source AI layer for Flutter apps. Deploys into your own Supabase — your keys, your database, no middleman.',
+      'Open-source AI layer for Flutter apps. Deploys into your own Supabase — your keys, your data, no middleman. One SDK call streams any model into your app.',
     images: ['/og.png'],
   },
   icons: {
@@ -75,10 +73,6 @@ export default function RootLayout({
       <body className="min-h-screen font-body">
         {children}
         <Analytics />
-        <Script
-          src="https://tally.so/widgets/embed.js"
-          strategy="lazyOnload"
-        />
       </body>
     </html>
   )

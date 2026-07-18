@@ -11,13 +11,13 @@ const steps = [
     num: '2',
     icon: MessageCircle,
     title: 'Ask',
-    body: 'Your app sends questions through Wingport. It checks who\'s asking, keeps them within their limits, and attaches your secret key — which never leaves your side.',
+    body: "Your app sends its question — and the data that goes with it, like a profile or a document. Wingport checks who's asking, keeps them within their limits, and attaches your secret key, which never leaves your side.",
   },
   {
     num: '3',
     icon: Sparkles,
     title: 'Answer',
-    body: 'The AI\'s answer streams straight back into your app, word by word — and keeps working even when the network doesn\'t.',
+    body: "The AI's answer streams straight back into your app, word by word — and keeps working even when the network doesn't.",
   },
 ]
 

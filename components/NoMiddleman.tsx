@@ -27,7 +27,7 @@ export default function NoMiddleman() {
                 </div>
               </Box>
               <Wire />
-              <Node label="Anthropic · OpenAI · Google" sub="any model" accent="ai" />
+              <Node label="Anthropic · OpenAI · Gemini" sub="any model" accent="ai" />
             </div>
           </div>
 
@@ -94,7 +94,7 @@ function Wire() {
 function TrustRow({ icon: Icon, children }: { icon: any; children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-wing-border bg-wing-raised">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-wing-border bg-wing-raised">
         <Icon className="h-5 w-5 text-wing-signal" />
       </div>
       <p className="pt-2 text-base leading-[1.6] text-wing-dim">{children}</p>

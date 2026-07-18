@@ -56,3 +56,17 @@ body {
 .shiki code {
   font-family: var(--font-jetbrains), monospace;
 }
+
+@media (max-width: 480px) {
+  .shiki {
+    font-size: 0.8rem;
+    padding: 1rem;
+  }
+}
+
+/* Minimum tap target */
+a,
+button {
+  min-height: 44px;
+  min-width: 44px;
+}

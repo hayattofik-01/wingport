@@ -2,22 +2,22 @@ import { GITHUB_URL } from '@/lib/site'
 
 const milestones = [
   {
-    title: 'v0.1 core loop',
+    title: 'v0.1 Core loop',
     desc: 'Supabase deploy, Anthropic + OpenAI, streaming, quotas',
     status: 'in progress',
   },
   {
-    title: 'v0.2',
-    desc: 'Resilience, spend caps, plugin authoring',
+    title: 'v0.2 Templates + resilience',
+    desc: 'Templates, spend caps, plugin authoring',
     status: 'planned',
   },
   {
-    title: 'v0.3',
+    title: 'v0.3 Firebase + multimodal',
     desc: 'Firebase, multimodal, caching, moderation',
     status: 'planned',
   },
   {
-    title: 'Cloud',
+    title: 'Cloud Hosted + dashboard',
     desc: 'Hosted gateway, dashboards, managed keys',
     status: 'planned',
   },
@@ -38,7 +38,7 @@ export default function Roadmap() {
               className="relative rounded-2xl border border-wing-border bg-wing-raised p-6"
             >
               {i < milestones.length - 1 && (
-                <div className="hidden md:block absolute top-1/2 -right-3 h-[2px] w-6 bg-wing-border" aria-hidden="true" />
+                <div className="hidden md:block absolute top-1/2 -right-2 h-[2px] w-4 bg-wing-border" aria-hidden="true" />
               )}
               <span
                 className={`mb-3 inline-block rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${
