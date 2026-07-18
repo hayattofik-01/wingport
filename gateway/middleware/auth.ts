@@ -2,6 +2,8 @@ import * as jose from 'jose'
 import type { Middleware } from '../types.ts'
 import { loadConfig } from '../config.ts'
 
+const jwkSetCache = new Map<string, ReturnType<typeof jose.createRemoteJWKSet>>()
+
 export function authMiddleware(): Middleware {
   return async (ctx, next) => {
     const config = loadConfig()
@@ -62,13 +64,15 @@ async function verifyToken(
 
   if (auth.mode === 'jwks') {
     if (!auth.supabaseUrl) throw new Error('JWKS mode selected but SUPABASE_URL is not set')
-    const jwks = jose.createRemoteJWKSet(
-      new URL(`${auth.supabaseUrl.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`),
-      {
+    const jwksUrl = `${auth.supabaseUrl.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`
+    let jwks = jwkSetCache.get(jwksUrl)
+    if (!jwks) {
+      jwks = jose.createRemoteJWKSet(new URL(jwksUrl), {
         cooldownDuration: 500,
         cacheMaxAge: 1000 * 60 * 60 * 24,
-      }
-    )
+      })
+      jwkSetCache.set(jwksUrl, jwks)
+    }
     const { payload } = await jose.jwtVerify(token, jwks, {
       algorithms: ['RS256'],
     })

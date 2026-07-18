@@ -96,6 +96,56 @@ Deno.test('auth middleware', async (t) => {
     }
   })
 
+  await t.step('JWKS key set is cached across requests', async () => {
+    clearTestEnv()
+    const { privateKey, publicKey } = await jose.generateKeyPair('RS256', { extractable: true })
+    const jwk = await jose.exportJWK(publicKey)
+    const kid = 'cached-key-1'
+    jwk.kid = kid
+    jwk.use = 'sig'
+    jwk.alg = 'RS256'
+
+    let fetchCount = 0
+    const server = Deno.serve({ port: 0, hostname: '127.0.0.1' }, (req) => {
+      if (req.url.endsWith('/auth/v1/.well-known/jwks.json')) {
+        fetchCount++
+        return new Response(JSON.stringify({ keys: [jwk] }))
+      }
+      return new Response('not found', { status: 404 })
+    })
+
+    try {
+      const port = server.addr.port
+      setTestEnv({ WINGPORT_AUTH_MODE: 'jwks', SUPABASE_URL: `http://127.0.0.1:${port}` })
+      const token = await new jose.SignJWT({ sub: 'user-cache', app_tier: 'pro' })
+        .setProtectedHeader({ alg: 'RS256', kid })
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(privateKey)
+
+      const makeRequest = () =>
+        app(
+          new Request('http://localhost/v1/generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ model: 'unknown-model' }),
+          })
+        )
+
+      const res1 = await makeRequest()
+      assertEquals(res1.status, 403)
+      const res2 = await makeRequest()
+      assertEquals(res2.status, 403)
+      assertEquals(fetchCount, 1)
+    } finally {
+      await server.shutdown()
+      clearTestEnv()
+    }
+  })
+
   await t.step('expired token is rejected', async () => {
     clearTestEnv()
     setTestEnv({})
