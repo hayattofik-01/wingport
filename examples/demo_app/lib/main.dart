@@ -224,22 +224,24 @@ class _ChatScreenState extends State<ChatScreen> {
     _cancelToken?.cancel();
   }
 
-  String _errorMessage(WingportException e) {
+  (String, Color) _errorStyle(WingportException e) {
     switch (e) {
       case NetworkException _:
-        return 'Network error (timeout: ${e.isTimeout})';
+        return ('Network error. Tap Retry to try again.', Colors.orange.shade900);
       case AuthException _:
-        return 'Auth error: ${e.reason}';
+        return ('Session expired. Please sign in again.', Colors.red.shade900);
       case QuotaExceededException _:
-        return 'Quota exceeded (${e.limitType})';
+        return ('Quota exceeded. Upgrade for more capacity.', Colors.purple.shade900);
       case ModelNotAllowedException _:
-        return 'Model "${e.requestedModel}" is not allowed';
+        return ('Model "${e.requestedModel}" is not allowed', Colors.red.shade900);
       case ProviderException _:
-        return 'Provider error (HTTP ${e.statusCode})';
+        return ('Provider error (HTTP ${e.statusCode})', Colors.red.shade900);
       case RequestCancelledException _:
-        return 'Request cancelled';
+        return ('Request cancelled', Colors.grey.shade800);
+      case StreamInterruptedException _:
+        return ('Stream interrupted — partial kept', Colors.orange.shade900);
       default:
-        return 'Unexpected error';
+        return ('Unexpected error', Colors.red.shade900);
     }
   }
 
@@ -254,7 +256,7 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.only(right: 16),
               child: Center(
                 child: Text(
-                  'Quota: ${q.remainingMinute}/${q.limitMinute} min · ${q.remainingDay}/${q.limitDay} day',
+                  'Quota: ${q.requestsRemaining} req · ${q.tokensRemaining} tok',
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
@@ -306,14 +308,19 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             const SizedBox(height: 24),
             if (_error case final err?)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade900,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(_errorMessage(err)),
+              Builder(
+                builder: (context) {
+                  final (message, color) = _errorStyle(err);
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(message),
+                  );
+                },
               ),
             if (_partialOnInterrupt.isNotEmpty)
               Container(

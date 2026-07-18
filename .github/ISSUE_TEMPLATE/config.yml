@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question or discuss a design
+    url: https://github.com/hayattofik-01/wingport/discussions
+    about: Use GitHub Discussions for questions, roadmap ideas, and design conversations before opening an issue.

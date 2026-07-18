@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  tests:
+    name: Run all test suites
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+      - name: Gateway lint & test
+        run: |
+          cd gateway
+          deno lint
+          deno task test
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: CLI install & test
+        run: |
+          cd cli
+          npm ci
+          npm run lint
+          npm test
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: SDK install & test
+        run: |
+          cd sdk
+          dart pub get
+          dart analyze
+          dart test
+
+  draft-release:
+    name: Draft GitHub Release
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
