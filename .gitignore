@@ -1,5 +1,6 @@
 # Dependencies
 /node_modules
+*/node_modules
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -8,6 +9,15 @@
 /.next/
 /out/
 /dist/
+
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# Deno
+deno.lock
 
 # Production
 /build
@@ -26,6 +36,11 @@
 
 # TypeScript
 *.tsbuildinfo
+next-env.d.ts
+
+# CLI build artifacts
+/cli/dist/
+/cli/gateway/
 
 # VitePress build output (when docs branch files exist)
 docs/.vitepress/dist/

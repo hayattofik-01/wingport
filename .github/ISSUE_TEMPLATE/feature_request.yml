@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest a new feature or improvement for Wingport.
+labels: ['enhancement']
+body:
+  - type: textarea
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the use case, not just the solution.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: dropdown
+    attributes:
+      label: Affected area
+      options:
+        - SDK
+        - Gateway
+        - CLI
+        - Demo app
+        - Docs
