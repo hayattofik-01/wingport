@@ -30,7 +30,7 @@ export function loadConfig(): GatewayConfig {
   const isOpenAI = providerName === 'openai'
   const apiKey = (isOpenAI ? openaiKey : anthropicKey) ?? ''
   const baseUrl = isOpenAI
-    ? (Deno.env.get('OPENAI_BASE_URL') ?? 'https://api.openai.com/v1')
+    ? (Deno.env.get('OPENAI_BASE_URL') ?? 'https://api.openai.com')
     : (Deno.env.get('ANTHROPIC_BASE_URL') ?? 'https://api.anthropic.com')
   const modelMap = (isOpenAI
     ? { 'gpt-4o': 'gpt-4o' }

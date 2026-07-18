@@ -1,5 +1,6 @@
 import type { Context, GenerateRequest, GenerateResponse, WingError } from '../types.ts'
 import { getProviderForAlias } from '../providers.ts'
+import { recordUsage } from '../usage.ts'
 
 export async function handleGenerate(ctx: Context): Promise<Response> {
   let body: GenerateRequest
@@ -23,11 +24,17 @@ export async function handleGenerate(ctx: Context): Promise<Response> {
       provider: provider.name,
       finishReason: result.finishReason,
     }
+    if (ctx.user) {
+      await recordUsage(ctx.user, 'ok', provider.name, modelAlias, result.usage).catch(() => {})
+    }
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (err) {
+    if (ctx.user) {
+      await recordUsage(ctx.user, 'error', provider.name, modelAlias).catch(() => {})
+    }
     if (err instanceof ProviderError) {
       return errorResponse(err.code, err.message)
     }

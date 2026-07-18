@@ -24,7 +24,109 @@ class WingportDemoApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: const ChatScreen(),
+      home: const AuthGate(),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AuthState>(
+      stream: Supabase.instance.client.auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session == null) {
+          return const SignInScreen();
+        }
+        return const ChatScreen();
+      },
+    );
+  }
+}
+
+class SignInScreen extends StatefulWidget {
+  const SignInScreen({super.key});
+
+  @override
+  State<SignInScreen> createState() => _SignInScreenState();
+}
+
+class _SignInScreenState extends State<SignInScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  Future<void> _signIn() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await Supabase.instance.client.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+    } on AuthException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Wingport Demo — Sign in')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Sign in with a Supabase user to stream through the gateway.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
+              keyboardType: TextInputType.emailAddress,
+              enabled: !_loading,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _passwordController,
+              decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder()),
+              obscureText: true,
+              enabled: !_loading,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loading ? null : _signIn,
+              child: _loading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Sign in'),
+            ),
+            if (_error case final err?)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Text(err, style: TextStyle(color: Colors.red.shade300)),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -37,7 +139,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  static const _models = ['claude-sonnet'];
+  static const _models = ['gpt-4o', 'claude-sonnet'];
 
   final _textController = TextEditingController();
   final _wing = Wingport.supabase(Supabase.instance.client);
@@ -48,11 +150,31 @@ class _ChatScreenState extends State<ChatScreen> {
   String _partialOnInterrupt = '';
   WingportException? _error;
   CancellationToken? _cancelToken;
+  WingQuota? _quota;
+  bool _loadingQuota = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadQuota();
+  }
 
   @override
   void dispose() {
     _textController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadQuota() async {
+    setState(() => _loadingQuota = true);
+    try {
+      final quota = await _wing.quota();
+      setState(() => _quota = quota);
+    } catch (e) {
+      // Ignore; the chat UI will surface real request errors.
+    } finally {
+      setState(() => _loadingQuota = false);
+    }
   }
 
   Future<void> _send() async {
@@ -94,6 +216,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     } finally {
       _cancelToken = null;
+      await _loadQuota();
     }
   }
 
@@ -123,7 +246,26 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Wingport Demo')),
+      appBar: AppBar(
+        title: const Text('Wingport Demo'),
+        actions: [
+          if (_quota case final q?)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Text(
+                  'Quota: ${q.remainingMinute}/${q.limitMinute} min · ${q.remainingDay}/${q.limitDay} day',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+          if (_loadingQuota)
+            const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))),
+            ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

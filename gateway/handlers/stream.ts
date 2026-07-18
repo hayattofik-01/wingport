@@ -1,7 +1,8 @@
-import type { Context, GenerateRequest, StreamChunk } from '../types.ts'
+import type { Context, GenerateRequest, StreamChunk, Usage } from '../types.ts'
 import { getProviderForAlias } from '../providers.ts'
 import { encodeSSE, sseResponse } from '../sse.ts'
 import { ProviderError } from './generate.ts'
+import { recordUsage } from '../usage.ts'
 
 export async function handleStream(ctx: Context): Promise<Response> {
   let body: GenerateRequest
@@ -19,10 +20,19 @@ export async function handleStream(ctx: Context): Promise<Response> {
 
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
   const writer = writable.getWriter()
+  let usage: Usage | undefined
+
+  function writeError(code: string, message: string) {
+    const line = encodeSSE({ error: { code, message } })
+    return writer.write(new TextEncoder().encode(line)).catch(() => {})
+  }
 
   provider
     .stream(body, {
       onChunk(chunk: StreamChunk) {
+        if ('done' in chunk && chunk.done) {
+          usage = chunk.usage
+        }
         const line = encodeSSE(chunk)
         const data = new TextEncoder().encode(line)
         writer.write(data).catch(() => {
@@ -30,21 +40,28 @@ export async function handleStream(ctx: Context): Promise<Response> {
         })
       },
       async onDone() {
+        if (ctx.user) {
+          await recordUsage(ctx.user, 'ok', provider.name, modelAlias, usage).catch(() => {})
+        }
         await writer.close()
       },
       async onError(err: unknown) {
+        if (ctx.user) {
+          await recordUsage(ctx.user, 'error', provider.name, modelAlias, usage).catch(() => {})
+        }
         const message = err instanceof ProviderError ? err.message : (err as Error).message
         const code = err instanceof ProviderError ? err.code : 'provider_error'
-        const line = encodeSSE({ error: { code, message } })
-        await writer.write(new TextEncoder().encode(line)).catch(() => {})
+        await writeError(code, message)
         await writer.close()
       },
     })
     .catch(async (err: unknown) => {
+      if (ctx.user) {
+        await recordUsage(ctx.user, 'error', provider.name, modelAlias, usage).catch(() => {})
+      }
       const message = err instanceof ProviderError ? err.message : (err as Error).message
       const code = err instanceof ProviderError ? err.code : 'provider_error'
-      const line = encodeSSE({ error: { code, message } })
-      await writer.write(new TextEncoder().encode(line)).catch(() => {})
+      await writeError(code, message)
       await writer.close()
     })
 

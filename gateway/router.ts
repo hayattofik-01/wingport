@@ -1,6 +1,7 @@
 import type { Middleware } from './types.ts'
 import { handleGenerate } from './handlers/generate.ts'
 import { handleStream } from './handlers/stream.ts'
+import { handleQuota } from './handlers/quota.ts'
 
 export const router: Middleware = (ctx, next) => {
   const { pathname } = ctx.url
@@ -12,6 +13,10 @@ export const router: Middleware = (ctx, next) => {
 
   if (method === 'POST' && pathname.endsWith('/v1/stream')) {
     return handleStream(ctx)
+  }
+
+  if (method === 'GET' && pathname.endsWith('/v1/quota')) {
+    return handleQuota(ctx)
   }
 
   return next()

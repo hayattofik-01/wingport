@@ -224,11 +224,16 @@ class Wingport {
     }
   }
 
-  /// Returns quota information.
-  ///
-  /// Stub: quotas are not yet supported in this version.
+  /// Returns the current quota for the signed-in user.
   Future<WingQuota> quota() async {
-    throw UnimplementedError('Quotas are not yet supported');
+    return _withRetry(() async {
+      final response = await _getJson('/v1/quota');
+      final json = jsonDecode(response) as Map<String, dynamic>;
+      if (json.containsKey('error')) {
+        throw _mapWireError(json['error'] as Map<String, dynamic>);
+      }
+      return WingQuota.fromJson(json);
+    });
   }
 
   Map<String, dynamic> _buildBody({
@@ -277,6 +282,35 @@ class Wingport {
             _buildUri(path),
             headers: headers,
             body: jsonEncode(body),
+          )
+          .timeout(_options.timeout);
+
+      return response.body;
+    } finally {
+      if (_client == null) client.close();
+    }
+  }
+
+  Future<String> _getJson(
+    String path, {
+    CancellationToken? cancel,
+  }) async {
+    if (cancel?.isCancelled ?? false) {
+      throw RequestCancelledException();
+    }
+    final client = _client ?? http.Client();
+    try {
+      final token = await _tokenProvider();
+      final headers = <String, String>{
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        if (_options.headers != null) ..._options.headers!,
+      };
+
+      final response = await client
+          .get(
+            _buildUri(path),
+            headers: headers,
           )
           .timeout(_options.timeout);
 

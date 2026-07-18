@@ -8,6 +8,7 @@ function setTestEnv(overrides: Record<string, string>) {
   Deno.env.set('SUPABASE_JWT_SECRET', HS_SECRET)
   Deno.env.set('ANTHROPIC_API_KEY', 'test-key')
   Deno.env.set('WINGPORT_TIER_CLAIM', 'app_tier')
+  Deno.env.set('WINGPORT_QUOTA_DISABLED', 'true')
   for (const [k, v] of Object.entries(overrides)) {
     Deno.env.set(k, v)
   }
@@ -21,6 +22,7 @@ function clearTestEnv() {
   Deno.env.delete('WINGPORT_TIER_CLAIM')
   Deno.env.delete('WINGPORT_ALLOW_ANONYMOUS')
   Deno.env.delete('WINGPORT_REQUIRE_VERIFIED_EMAIL')
+  Deno.env.delete('WINGPORT_QUOTA_DISABLED')
 }
 
 async function signHS(claims: Record<string, unknown>): Promise<string> {

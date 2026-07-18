@@ -282,12 +282,33 @@ void main() {
     expect(interrupted.partialText, 'partial ');
   });
 
-  test('quota is not yet supported', () async {
+  test('quota returns parsed quota', () async {
+    final client = _mockClient((req) {
+      expect(req.url.toString(), 'http://localhost:8000/functions/v1/wingport/v1/quota');
+      return http.Response(
+        jsonEncode({
+          'userId': 'user-1',
+          'tier': 'free',
+          'limitMinute': 10,
+          'limitDay': 100,
+          'usedMinute': 1,
+          'usedDay': 5,
+          'remainingMinute': 9,
+          'remainingDay': 95,
+        }),
+        200,
+      );
+    });
+
     final wing = Wingport(
       endpoint: endpoint,
       tokenProvider: () async => 'token',
+      client: client,
     );
 
-    expect(wing.quota(), throwsA(isA<UnimplementedError>()));
+    final quota = await wing.quota();
+    expect(quota.userId, 'user-1');
+    expect(quota.remainingMinute, 9);
+    expect(quota.remainingDay, 95);
   });
 }

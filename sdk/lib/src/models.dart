@@ -78,21 +78,36 @@ class WingChunk {
 
 /// Quota returned by [Wingport.quota].
 class WingQuota {
-  final int requestsRemaining;
-  final int tokensRemaining;
-  final DateTime resetsAt;
+  final String userId;
+  final String tier;
+  final int limitMinute;
+  final int limitDay;
+  final int usedMinute;
+  final int usedDay;
+  final int remainingMinute;
+  final int remainingDay;
 
   const WingQuota({
-    required this.requestsRemaining,
-    required this.tokensRemaining,
-    required this.resetsAt,
+    required this.userId,
+    required this.tier,
+    required this.limitMinute,
+    required this.limitDay,
+    required this.usedMinute,
+    required this.usedDay,
+    required this.remainingMinute,
+    required this.remainingDay,
   });
 
   factory WingQuota.fromJson(Map<String, dynamic> json) {
     return WingQuota(
-      requestsRemaining: (json['requestsRemaining'] as num).toInt(),
-      tokensRemaining: (json['tokensRemaining'] as num).toInt(),
-      resetsAt: DateTime.parse(json['resetsAt'] as String),
+      userId: json['userId'] as String? ?? json['user_id'] as String? ?? '',
+      tier: json['tier'] as String? ?? 'free',
+      limitMinute: (json['limitMinute'] as num? ?? json['limit_minute'] as num?)?.toInt() ?? 0,
+      limitDay: (json['limitDay'] as num? ?? json['limit_day'] as num?)?.toInt() ?? 0,
+      usedMinute: (json['usedMinute'] as num? ?? json['used_minute'] as num?)?.toInt() ?? 0,
+      usedDay: (json['usedDay'] as num? ?? json['used_day'] as num?)?.toInt() ?? 0,
+      remainingMinute: (json['remainingMinute'] as num? ?? json['remaining_minute'] as num?)?.toInt() ?? 0,
+      remainingDay: (json['remainingDay'] as num? ?? json['remaining_day'] as num?)?.toInt() ?? 0,
     );
   }
 }

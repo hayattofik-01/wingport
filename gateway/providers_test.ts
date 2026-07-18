@@ -33,6 +33,7 @@ function setEndpointEnv(env: Record<string, string>) {
   Deno.env.set('SUPABASE_JWT_SECRET', HS_SECRET)
   Deno.env.set('ANTHROPIC_API_KEY', env.ANTHROPIC_API_KEY ?? 'test-key')
   Deno.env.set('WINGPORT_PROVIDER', 'anthropic')
+  Deno.env.set('WINGPORT_QUOTA_DISABLED', 'true')
   if (env.ANTHROPIC_BASE_URL) Deno.env.set('ANTHROPIC_BASE_URL', env.ANTHROPIC_BASE_URL)
 }
 
@@ -45,6 +46,7 @@ function clearEndpointEnv() {
   Deno.env.delete('OPENAI_BASE_URL')
   Deno.env.delete('WINGPORT_PROVIDER')
   Deno.env.delete('WINGPORT_AUTH_MODE')
+  Deno.env.delete('WINGPORT_QUOTA_DISABLED')
 }
 
 type MockServer = {
