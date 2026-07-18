@@ -3,6 +3,7 @@ import * as jose from 'jose'
 import { app } from './main.ts'
 import { makeProvider } from './providers.ts'
 import { anthropicAdapter } from './adapters/anthropic.ts'
+import { openaiAdapter } from './adapters/openai.ts'
 import type { GenerateRequest, StreamChunk } from './types.ts'
 
 class Deferred<T = void> {
@@ -247,4 +248,92 @@ Deno.test('endpoint integration', async (t) => {
     assertEquals(body.error.code, 'model_not_allowed')
     clearEndpointEnv()
   })
+})
+
+Deno.test('openai generate returns parsed response', async () => {
+  const handler = (req: Request): Response => {
+    assertEquals(req.url.endsWith('/v1/chat/completions'), true)
+    return new Response(
+      JSON.stringify({
+        choices: [{ message: { content: 'Hello from OpenAI' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 },
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+  const mock = startMockAnthropic(handler)
+  try {
+    const provider = makeProvider(
+      openaiAdapter('test-key', mock.url, { 'gpt-4o': 'gpt-4o' }),
+      'gpt-4o'
+    )
+
+    const result = await provider.generate({ model: 'gpt-4o', prompt: 'Hello' })
+
+    assertEquals(result.text, 'Hello from OpenAI')
+    assertEquals(result.provider, 'openai')
+    assertEquals(result.usage, { inputTokens: 2, outputTokens: 3, totalTokens: 5 })
+    assertEquals(result.finishReason, 'stop')
+  } finally {
+    await mock.shutdown()
+  }
+})
+
+Deno.test('openai stream yields deltas and terminal usage', async () => {
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        new TextEncoder().encode(
+          'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
+        )
+      )
+      controller.enqueue(
+        new TextEncoder().encode(
+          'data: {"choices":[{"delta":{"content":" there"}}]}\n\n'
+        )
+      )
+      controller.enqueue(
+        new TextEncoder().encode(
+          'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":2,"total_tokens":4}}\n\n'
+        )
+      )
+      controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
+      controller.close()
+    },
+  })
+
+  const handler = (): Response => {
+    return new Response(body, {
+      headers: { 'Content-Type': 'text/event-stream' },
+    })
+  }
+  const mock = startMockAnthropic(handler)
+  try {
+    const provider = makeProvider(
+      openaiAdapter('test-key', mock.url, { 'gpt-4o': 'gpt-4o' }),
+      'gpt-4o'
+    )
+
+    const chunks: StreamChunk[] = []
+    await provider.stream(
+      { model: 'gpt-4o', prompt: 'Hello' },
+      {
+        onChunk(c: StreamChunk) {
+          chunks.push(c)
+        },
+        onDone() {},
+        onError(err: unknown) {
+          throw err
+        },
+      }
+    )
+
+    assertEquals(chunks, [
+      { delta: 'Hi' },
+      { delta: ' there' },
+      { done: true, usage: { inputTokens: 2, outputTokens: 2, totalTokens: 4 }, finishReason: 'stop' },
+    ])
+  } finally {
+    await mock.shutdown()
+  }
 })

@@ -13,7 +13,7 @@ export type GatewayConfig = {
     tierClaim: string
   }
   provider: {
-    name: 'anthropic'
+    name: 'anthropic' | 'openai'
     apiKey: string
     baseUrl: string
     modelMap: Record<string, string>
@@ -21,6 +21,21 @@ export type GatewayConfig = {
 }
 
 export function loadConfig(): GatewayConfig {
+  const openaiKey = Deno.env.get('OPENAI_API_KEY')
+  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
+  const providerName =
+    (Deno.env.get('WINGPORT_PROVIDER') as 'anthropic' | 'openai' | undefined) ??
+    (openaiKey ? 'openai' : anthropicKey ? 'anthropic' : 'anthropic')
+
+  const isOpenAI = providerName === 'openai'
+  const apiKey = (isOpenAI ? openaiKey : anthropicKey) ?? ''
+  const baseUrl = isOpenAI
+    ? (Deno.env.get('OPENAI_BASE_URL') ?? 'https://api.openai.com/v1')
+    : (Deno.env.get('ANTHROPIC_BASE_URL') ?? 'https://api.anthropic.com')
+  const modelMap = (isOpenAI
+    ? { 'gpt-4o': 'gpt-4o' }
+    : { 'claude-sonnet': 'claude-sonnet-4-6' }) as Record<string, string>
+
   return {
     auth: {
       provider: 'supabase',
@@ -33,12 +48,10 @@ export function loadConfig(): GatewayConfig {
       tierClaim: Deno.env.get('WINGPORT_TIER_CLAIM') ?? 'app_tier',
     },
     provider: {
-      name: 'anthropic',
-      apiKey: Deno.env.get('ANTHROPIC_API_KEY') ?? '',
-      baseUrl: Deno.env.get('ANTHROPIC_BASE_URL') ?? 'https://api.anthropic.com',
-      modelMap: {
-        'claude-sonnet': 'claude-sonnet-4-6',
-      },
+      name: providerName,
+      apiKey,
+      baseUrl,
+      modelMap,
     },
   }
 }

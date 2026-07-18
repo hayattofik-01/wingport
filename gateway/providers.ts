@@ -5,6 +5,7 @@ import type {
   StreamChunk,
 } from './types.ts'
 import { anthropicAdapter, toProviderRequest } from './adapters/anthropic.ts'
+import { openaiAdapter } from './adapters/openai.ts'
 import { parseSSE } from './sse.ts'
 import { ProviderError } from './handlers/generate.ts'
 import { loadConfig, type GatewayConfig } from './config.ts'
@@ -28,10 +29,13 @@ export function getProviderForAlias(
 ): Provider | undefined {
   const providerCfg = cfg.provider
   if (!providerCfg.apiKey) {
-    throw new ProviderError('provider_error', 'ANTHROPIC_API_KEY is not set')
+    throw new ProviderError('provider_error', `${providerCfg.name.toUpperCase()}_API_KEY is not set`)
   }
 
-  const adapter = anthropicAdapter(providerCfg.apiKey, providerCfg.baseUrl, providerCfg.modelMap)
+  const adapter =
+    providerCfg.name === 'openai'
+      ? openaiAdapter(providerCfg.apiKey, providerCfg.baseUrl, providerCfg.modelMap)
+      : anthropicAdapter(providerCfg.apiKey, providerCfg.baseUrl, providerCfg.modelMap)
   const modelId = adapter.resolveModel(modelAlias)
   if (!modelId) return undefined
 
@@ -49,7 +53,7 @@ export function makeProvider(adapter: ProviderAdapter, modelId: string): Provide
       const res = await adapter.request(pr)
       if (!res.ok) {
         const body = await res.text()
-        throw new ProviderError('provider_error', `Anthropic returned ${res.status}: ${body}`)
+        throw new ProviderError('provider_error', `${adapter.name} returned ${res.status}: ${body}`)
       }
 
       const body = (await res.json()) as unknown
@@ -71,7 +75,7 @@ export function makeProvider(adapter: ProviderAdapter, modelId: string): Provide
         const res = await adapter.request(pr)
         if (!res.ok) {
           const body = await res.text()
-          throw new ProviderError('provider_error', `Anthropic returned ${res.status}: ${body}`)
+          throw new ProviderError('provider_error', `${adapter.name} returned ${res.status}: ${body}`)
         }
 
         let inputTokens = 0
