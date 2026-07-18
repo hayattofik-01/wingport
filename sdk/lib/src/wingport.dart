@@ -18,15 +18,18 @@ class Wingport {
   final Future<String?> Function() _tokenProvider;
   final WingportOptions _options;
   final http.Client? _client;
+  final SupabaseClient? _supabase;
 
   Wingport({
     required this.endpoint,
     required Future<String?> Function() tokenProvider,
     WingportOptions? options,
     http.Client? client,
+    SupabaseClient? supabase,
   }) : _tokenProvider = tokenProvider,
        _options = options ?? const WingportOptions(),
-       _client = client;
+       _client = client,
+       _supabase = supabase;
 
   /// Creates a Wingport client from a [SupabaseClient].
   ///
@@ -45,8 +48,11 @@ class Wingport {
       tokenProvider: () async => client.auth.currentSession?.accessToken,
       options: options,
       client: httpClient,
+      supabase: client,
     );
   }
+
+  void _log(String message) => _options.logger?.call(message);
 
   /// Sends a non-streaming generate request.
   Future<WingResult> generate({
@@ -120,7 +126,7 @@ class Wingport {
         throw RequestCancelledException();
       }
 
-      response = await client.send(request).timeout(_options.timeout);
+      response = await client.send(request).timeout(_options.connectTimeout);
 
       if (response.statusCode != 200) {
         final bodyString = await response.stream.bytesToString();
@@ -142,7 +148,11 @@ class Wingport {
       }
 
       // utf8.decoder preserves partial multi-byte characters across chunks.
-      final decodedStream = response.stream.transform(utf8.decoder);
+      final decodedStream = response.stream
+          .transform(utf8.decoder)
+          .timeout(_options.chunkTimeout, onTimeout: (sink) {
+        sink.addError(TimeoutException('chunk timeout'));
+      });
 
       subscription = decodedStream.listen(
         (decoded) {
@@ -181,7 +191,7 @@ class Wingport {
               dispose();
               controller.close();
               return;
-            } else if (data case {'error': final Map<String, dynamic> err}) {
+            } else if (data case {'error': final Map<String, dynamic> _}) {
               dispose();
               controller.addError(
                 StreamInterruptedException(
@@ -189,7 +199,6 @@ class Wingport {
                   resumable: false,
                 ),
               );
-              controller.addError(_mapWireError(err, statusCode: response?.statusCode ?? 502));
               if (!controller.isClosed) controller.close();
               return;
             }
@@ -224,11 +233,16 @@ class Wingport {
     }
   }
 
-  /// Returns quota information.
-  ///
-  /// Stub: quotas are not yet supported in this version.
+  /// Returns the current quota for the signed-in user.
   Future<WingQuota> quota() async {
-    throw UnimplementedError('Quotas are not yet supported');
+    return _withRetry(() async {
+      final response = await _getJson('/v1/quota');
+      final json = jsonDecode(response) as Map<String, dynamic>;
+      if (json.containsKey('error')) {
+        throw _mapWireError(json['error'] as Map<String, dynamic>);
+      }
+      return WingQuota.fromJson(json);
+    });
   }
 
   Map<String, dynamic> _buildBody({
@@ -278,7 +292,36 @@ class Wingport {
             headers: headers,
             body: jsonEncode(body),
           )
-          .timeout(_options.timeout);
+          .timeout(_options.connectTimeout);
+
+      return response.body;
+    } finally {
+      if (_client == null) client.close();
+    }
+  }
+
+  Future<String> _getJson(
+    String path, {
+    CancellationToken? cancel,
+  }) async {
+    if (cancel?.isCancelled ?? false) {
+      throw RequestCancelledException();
+    }
+    final client = _client ?? http.Client();
+    try {
+      final token = await _tokenProvider();
+      final headers = <String, String>{
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        if (_options.headers != null) ..._options.headers!,
+      };
+
+      final response = await client
+          .get(
+            _buildUri(path),
+            headers: headers,
+          )
+          .timeout(_options.connectTimeout);
 
       return response.body;
     } finally {
@@ -301,8 +344,17 @@ class Wingport {
     final maxRetries = _options.maxRetries;
     for (var attempt = 0; attempt <= maxRetries; attempt++) {
       try {
+        _log('wingport request attempt ${attempt + 1}');
         return await fn();
       } on WingportException catch (err) {
+        if (err is AuthException) {
+          if (attempt == 0) {
+            await _refreshSession();
+            lastError = err;
+            continue;
+          }
+          rethrow;
+        }
         if (err is NetworkException || (err is ProviderException && err.retryable)) {
           if (attempt == maxRetries) rethrow;
           lastError = err;
@@ -325,6 +377,17 @@ class Wingport {
       }
     }
     throw lastError;
+  }
+
+  Future<void> _refreshSession() async {
+    if (_supabase == null) return;
+    try {
+      _log('refreshing supabase session');
+      await _supabase!.auth.refreshSession();
+    } catch (e) {
+      // Let the next attempt fail with the original 401.
+      _log('session refresh failed: $e');
+    }
   }
 
   Future<void> _backoff(int attempt) async {

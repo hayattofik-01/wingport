@@ -48,6 +48,7 @@ export type Context = {
   request: Request
   url: URL
   user?: UserContext
+  body?: GenerateRequest
 }
 
 export type Next = () => Promise<Response>

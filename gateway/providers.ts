@@ -4,10 +4,12 @@ import type {
   ProviderAdapter,
   StreamChunk,
 } from './types.ts'
-import { anthropicAdapter, toProviderRequest } from './adapters/anthropic.ts'
+import { anthropicAdapter } from './adapters/anthropic.ts'
+import { openaiAdapter } from './adapters/openai.ts'
 import { parseSSE } from './sse.ts'
 import { ProviderError } from './handlers/generate.ts'
-import { loadConfig, type GatewayConfig } from './config.ts'
+import { loadConfig, type GatewayConfig, type ProviderConfig } from './config.ts'
+import { toProviderRequest } from './adapters/anthropic.ts'
 
 export type Provider = {
   name: string
@@ -22,20 +24,38 @@ export type Provider = {
   ) => Promise<void>
 }
 
+export function getProvidersForAlias(
+  modelAlias: string,
+  cfg: GatewayConfig = loadConfig()
+): Provider[] {
+  const candidates: Provider[] = []
+  for (const pc of cfg.providers) {
+    const modelId = pc.modelMap[modelAlias]
+    if (modelId) {
+      candidates.push(makeProvider(buildAdapter(pc), modelId))
+    }
+  }
+  return candidates
+}
+
 export function getProviderForAlias(
   modelAlias: string,
   cfg: GatewayConfig = loadConfig()
 ): Provider | undefined {
-  const providerCfg = cfg.provider
-  if (!providerCfg.apiKey) {
-    throw new ProviderError('provider_error', 'ANTHROPIC_API_KEY is not set')
+  const providers = getProvidersForAlias(modelAlias, cfg)
+  if (providers.length === 0) return undefined
+
+  if (cfg.fallback && providers.length > 1) {
+    return makeFallbackProvider(providers)
   }
 
-  const adapter = anthropicAdapter(providerCfg.apiKey, providerCfg.baseUrl, providerCfg.modelMap)
-  const modelId = adapter.resolveModel(modelAlias)
-  if (!modelId) return undefined
+  return providers[0]
+}
 
-  return makeProvider(adapter, modelId)
+function buildAdapter(pc: ProviderConfig): ProviderAdapter {
+  return pc.name === 'openai'
+    ? openaiAdapter(pc.apiKey, pc.baseUrl, pc.modelMap)
+    : anthropicAdapter(pc.apiKey, pc.baseUrl, pc.modelMap)
 }
 
 export function makeProvider(adapter: ProviderAdapter, modelId: string): Provider {
@@ -49,7 +69,7 @@ export function makeProvider(adapter: ProviderAdapter, modelId: string): Provide
       const res = await adapter.request(pr)
       if (!res.ok) {
         const body = await res.text()
-        throw new ProviderError('provider_error', `Anthropic returned ${res.status}: ${body}`)
+        throw new ProviderError('provider_error', `${adapter.name} returned ${res.status}: ${body}`)
       }
 
       const body = (await res.json()) as unknown
@@ -71,7 +91,7 @@ export function makeProvider(adapter: ProviderAdapter, modelId: string): Provide
         const res = await adapter.request(pr)
         if (!res.ok) {
           const body = await res.text()
-          throw new ProviderError('provider_error', `Anthropic returned ${res.status}: ${body}`)
+          throw new ProviderError('provider_error', `${adapter.name} returned ${res.status}: ${body}`)
         }
 
         let inputTokens = 0
@@ -109,6 +129,75 @@ export function makeProvider(adapter: ProviderAdapter, modelId: string): Provide
       }
     },
   }
+}
+
+export function makeFallbackProvider(providers: Provider[]): Provider {
+  const primary = providers[0]
+
+  return {
+    name: primary.name,
+    async generate(req: GenerateRequest): Promise<GenerateResponse> {
+      const errors: string[] = []
+      for (const p of providers) {
+        try {
+          return await p.generate(req)
+        } catch (err) {
+          if (err instanceof ProviderError) {
+            errors.push(err.message)
+            if (!isRetryable(err.message)) throw err
+            continue
+          }
+          throw err
+        }
+      }
+      throw new ProviderError('provider_error', `All providers failed: ${errors.join('; ')}`)
+    },
+
+    async stream(req, callbacks) {
+      let fallbackAttempted = false
+      let tokensEmitted = false
+
+      for (let i = 0; i < providers.length; i++) {
+        const p = providers[i]
+
+        try {
+          await p.stream(req, {
+            onChunk(chunk: StreamChunk) {
+              if ('delta' in chunk) tokensEmitted = true
+              callbacks.onChunk(chunk)
+            },
+            onDone() {
+              callbacks.onDone()
+            },
+            onError(err: unknown) {
+              if (fallbackAttempted && tokensEmitted) {
+                // A fallback produced tokens before failing; do not silently re-issue.
+                throw new ProviderError(
+                  'provider_error',
+                  `Stream failed after fallback already emitted tokens`
+                )
+              }
+              // Errors here will be caught by the surrounding try and trigger next fallback.
+              throw err
+            },
+          })
+          return
+        } catch (err) {
+          if (i < providers.length - 1 && isRetryable((err as Error).message) && !tokensEmitted) {
+            fallbackAttempted = true
+            continue
+          }
+          throw err
+        }
+      }
+    },
+  }
+}
+
+function isRetryable(message: string): boolean {
+  const code = Number(message.match(/returned (\d+):/)?.[1])
+  if (Number.isNaN(code)) return true // network/connection failure
+  return code === 429 || code >= 500
 }
 
 function safeJson(data: string): unknown {

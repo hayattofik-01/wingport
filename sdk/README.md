@@ -16,7 +16,7 @@ dart analyze
 dart test
 ```
 
-All non-transport tests pass. Transport contract tests are skipped — they describe the hardened rewrite tracked in issue #1.
+Transport-contract edge cases (fragmentation, chunk timeout, interruption with partial text) are covered by `test/transport_contract_test.dart`. Device-dependent cases (network handoff, backgrounding) are deferred to the hardened transport tracked in issue #7.
 
 ## Usage
 
@@ -59,4 +59,4 @@ final wing = Wingport(
 
 `stream()` uses `http.Client().send()` with a buffer-and-scan SSE parser. It maps wire-format `data:` events to `WingChunk`. Mid-stream errors or connection drops become `StreamInterruptedException` with `partialText` preserved.
 
-Quota support is not yet implemented; `quota()` throws `UnimplementedError`.
+Use `WingportOptions` to configure `connectTimeout`, `chunkTimeout`, `maxRetries`, and a logger.

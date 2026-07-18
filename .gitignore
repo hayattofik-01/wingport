@@ -36,3 +36,7 @@ deno.lock
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# CLI build artifacts
+/cli/dist/
+/cli/gateway/

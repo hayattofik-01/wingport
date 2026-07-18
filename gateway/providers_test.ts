@@ -1,8 +1,9 @@
 import { assertEquals, assertStringIncludes } from '@std/assert'
 import * as jose from 'jose'
 import { app } from './main.ts'
-import { makeProvider } from './providers.ts'
+import { makeFallbackProvider, makeProvider, type Provider } from './providers.ts'
 import { anthropicAdapter } from './adapters/anthropic.ts'
+import { openaiAdapter } from './adapters/openai.ts'
 import type { GenerateRequest, StreamChunk } from './types.ts'
 
 class Deferred<T = void> {
@@ -28,15 +29,31 @@ async function signTestToken(claims: Record<string, unknown> = {}): Promise<stri
 }
 
 function setEndpointEnv(env: Record<string, string>) {
+  clearEndpointEnv()
   Deno.env.set('SUPABASE_JWT_SECRET', HS_SECRET)
   Deno.env.set('ANTHROPIC_API_KEY', env.ANTHROPIC_API_KEY ?? 'test-key')
+  Deno.env.set('OPENAI_API_KEY', env.OPENAI_API_KEY ?? '')
+  Deno.env.set('WINGPORT_FALLBACK', env.WINGPORT_FALLBACK ?? 'false')
+  Deno.env.set('WINGPORT_QUOTA_DISABLED', 'true')
   if (env.ANTHROPIC_BASE_URL) Deno.env.set('ANTHROPIC_BASE_URL', env.ANTHROPIC_BASE_URL)
+  if (env.OPENAI_BASE_URL) Deno.env.set('OPENAI_BASE_URL', env.OPENAI_BASE_URL)
+  if (env.WINGPORT_OPENAI_MODELS) Deno.env.set('WINGPORT_OPENAI_MODELS', env.WINGPORT_OPENAI_MODELS)
+  if (env.WINGPORT_ANTHROPIC_MODELS) Deno.env.set('WINGPORT_ANTHROPIC_MODELS', env.WINGPORT_ANTHROPIC_MODELS)
 }
 
 function clearEndpointEnv() {
   Deno.env.delete('SUPABASE_JWT_SECRET')
+  Deno.env.delete('WINGPORT_JWT_SECRET')
   Deno.env.delete('ANTHROPIC_API_KEY')
+  Deno.env.delete('OPENAI_API_KEY')
   Deno.env.delete('ANTHROPIC_BASE_URL')
+  Deno.env.delete('OPENAI_BASE_URL')
+  Deno.env.delete('WINGPORT_PROVIDER')
+  Deno.env.delete('WINGPORT_AUTH_MODE')
+  Deno.env.delete('WINGPORT_QUOTA_DISABLED')
+  Deno.env.delete('WINGPORT_FALLBACK')
+  Deno.env.delete('WINGPORT_OPENAI_MODELS')
+  Deno.env.delete('WINGPORT_ANTHROPIC_MODELS')
 }
 
 type MockServer = {
@@ -44,7 +61,7 @@ type MockServer = {
   shutdown: () => Promise<void>
 }
 
-function startMockAnthropic(
+function startMockServer(
   handler: (req: Request) => Response | Promise<Response>
 ): MockServer {
   const server = Deno.serve({ port: 0, hostname: '127.0.0.1' }, handler)
@@ -67,7 +84,7 @@ Deno.test('generate returns parsed Anthropic response', async () => {
       { headers: { 'Content-Type': 'application/json' } }
     )
   }
-  const mock = startMockAnthropic(handler)
+  const mock = startMockServer(handler)
   try {
     const provider = makeProvider(
       anthropicAdapter('test-key', mock.url, { 'claude-sonnet': 'claude-sonnet-4-6' }),
@@ -121,7 +138,7 @@ Deno.test('stream yields deltas and terminal usage', async () => {
       headers: { 'Content-Type': 'text/event-stream' },
     })
   }
-  const mock = startMockAnthropic(handler)
+  const mock = startMockServer(handler)
   try {
     const provider = makeProvider(
       anthropicAdapter('test-key', mock.url, { 'claude-sonnet': 'claude-sonnet-4-6' }),
@@ -185,7 +202,7 @@ Deno.test('endpoint integration', async (t) => {
       })
     }
 
-    const mock = startMockAnthropic(handler)
+    const mock = startMockServer(handler)
     try {
       setEndpointEnv({ ANTHROPIC_BASE_URL: mock.url, ANTHROPIC_API_KEY: 'test-key' })
       const token = await signTestToken()
@@ -247,4 +264,245 @@ Deno.test('endpoint integration', async (t) => {
     assertEquals(body.error.code, 'model_not_allowed')
     clearEndpointEnv()
   })
+})
+
+Deno.test('openai generate returns parsed response', async () => {
+  const handler = (req: Request): Response => {
+    assertEquals(req.url.endsWith('/v1/chat/completions'), true)
+    return new Response(
+      JSON.stringify({
+        choices: [{ message: { content: 'Hello from OpenAI' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 },
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+  const mock = startMockServer(handler)
+  try {
+    const provider = makeProvider(
+      openaiAdapter('test-key', mock.url, { 'gpt-4o': 'gpt-4o' }),
+      'gpt-4o'
+    )
+
+    const result = await provider.generate({ model: 'gpt-4o', prompt: 'Hello' })
+
+    assertEquals(result.text, 'Hello from OpenAI')
+    assertEquals(result.provider, 'openai')
+    assertEquals(result.usage, { inputTokens: 2, outputTokens: 3, totalTokens: 5 })
+    assertEquals(result.finishReason, 'stop')
+  } finally {
+    await mock.shutdown()
+  }
+})
+
+Deno.test('openai stream yields deltas and terminal usage', async () => {
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        new TextEncoder().encode(
+          'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
+        )
+      )
+      controller.enqueue(
+        new TextEncoder().encode(
+          'data: {"choices":[{"delta":{"content":" there"}}]}\n\n'
+        )
+      )
+      controller.enqueue(
+        new TextEncoder().encode(
+          'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":2,"total_tokens":4}}\n\n'
+        )
+      )
+      controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
+      controller.close()
+    },
+  })
+
+  const handler = (): Response => {
+    return new Response(body, {
+      headers: { 'Content-Type': 'text/event-stream' },
+    })
+  }
+  const mock = startMockServer(handler)
+  try {
+    const provider = makeProvider(
+      openaiAdapter('test-key', mock.url, { 'gpt-4o': 'gpt-4o' }),
+      'gpt-4o'
+    )
+
+    const chunks: StreamChunk[] = []
+    await provider.stream(
+      { model: 'gpt-4o', prompt: 'Hello' },
+      {
+        onChunk(c: StreamChunk) {
+          chunks.push(c)
+        },
+        onDone() {},
+        onError(err: unknown) {
+          throw err
+        },
+      }
+    )
+
+    assertEquals(chunks, [
+      { delta: 'Hi' },
+      { delta: ' there' },
+      { done: true, usage: { inputTokens: 2, outputTokens: 2, totalTokens: 4 }, finishReason: 'stop' },
+    ])
+  } finally {
+    await mock.shutdown()
+  }
+})
+
+Deno.test('fallback generate routes to OpenAI when Anthropic 529s', async () => {
+  const alias = 'shared-model'
+  const anthropicHandler = (req: Request): Response => {
+    assertEquals(req.url.endsWith('/v1/messages'), true)
+    return new Response('server error', { status: 529 })
+  }
+  const openaiHandler = (req: Request): Response => {
+    assertEquals(req.url.endsWith('/v1/chat/completions'), true)
+    return new Response(
+      JSON.stringify({
+        choices: [{ message: { content: 'OpenAI fallback' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 },
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
+  const anthropicMock = startMockServer(anthropicHandler)
+  const openaiMock = startMockServer(openaiHandler)
+
+  try {
+    setEndpointEnv({
+      ANTHROPIC_API_KEY: 'a-key',
+      ANTHROPIC_BASE_URL: anthropicMock.url,
+      OPENAI_API_KEY: 'o-key',
+      OPENAI_BASE_URL: openaiMock.url,
+      WINGPORT_FALLBACK: 'true',
+      WINGPORT_ANTHROPIC_MODELS: JSON.stringify({ [alias]: 'claude-model' }),
+      WINGPORT_OPENAI_MODELS: JSON.stringify({ [alias]: 'openai-model' }),
+    })
+
+    const token = await signTestToken()
+    const res = await app(new Request('http://localhost/v1/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ model: alias, prompt: 'Hello' }),
+    }))
+
+    assertEquals(res.status, 200)
+    const body = await res.json()
+    assertEquals(body.text, 'OpenAI fallback')
+    assertEquals(body.provider, 'openai')
+  } finally {
+    await anthropicMock.shutdown()
+    await openaiMock.shutdown()
+    clearEndpointEnv()
+  }
+})
+
+Deno.test('fallback stream routes to OpenAI when Anthropic 529s before first token', async () => {
+  const alias = 'shared-stream-model'
+  const anthropicHandler = (): Response => {
+    return new Response('server error', { status: 529 })
+  }
+  const openaiHandler = (): Response => {
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'data: {"choices":[{"delta":{"content":"fallback"}}]}\n\n'
+          )
+        )
+        controller.enqueue(
+          new TextEncoder().encode(
+            'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}\n\n'
+          )
+        )
+        controller.close()
+      },
+    })
+    return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
+  }
+
+  const anthropicMock = startMockServer(anthropicHandler)
+  const openaiMock = startMockServer(openaiHandler)
+
+  try {
+    setEndpointEnv({
+      ANTHROPIC_API_KEY: 'a-key',
+      ANTHROPIC_BASE_URL: anthropicMock.url,
+      OPENAI_API_KEY: 'o-key',
+      OPENAI_BASE_URL: openaiMock.url,
+      WINGPORT_FALLBACK: 'true',
+      WINGPORT_ANTHROPIC_MODELS: JSON.stringify({ [alias]: 'claude-model' }),
+      WINGPORT_OPENAI_MODELS: JSON.stringify({ [alias]: 'openai-model' }),
+    })
+
+    const token = await signTestToken()
+    const res = await app(new Request('http://localhost/v1/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ model: alias, prompt: 'Hello' }),
+    }))
+
+    assertEquals(res.status, 200)
+    const text = await res.text()
+    assertStringIncludes(text, 'fallback')
+  } finally {
+    await anthropicMock.shutdown()
+    await openaiMock.shutdown()
+    clearEndpointEnv()
+  }
+})
+
+Deno.test('makeFallbackProvider does not re-issue after tokens are emitted', async () => {
+  let secondaryCalled = false
+
+  const primary: Provider = {
+    name: 'primary',
+    generate: () => Promise.reject(new Error('should not be called')),
+    stream: (_req, callbacks) => {
+      callbacks.onChunk({ delta: 'partial ' })
+      return Promise.reject(new Error('stream dropped'))
+    },
+  }
+
+  const secondary: Provider = {
+    name: 'secondary',
+    generate: () => Promise.reject(new Error('should not be called')),
+    stream: (_req, callbacks) => {
+      secondaryCalled = true
+      callbacks.onChunk({ delta: 'wrong' })
+      callbacks.onDone()
+      return Promise.resolve()
+    },
+  }
+
+  const fallback = makeFallbackProvider([primary, secondary])
+
+  const chunks: StreamChunk[] = []
+  let error: unknown
+  try {
+    await fallback.stream(
+      { model: 'shared', prompt: 'Hello' },
+      {
+        onChunk(c: StreamChunk) {
+          chunks.push(c)
+        },
+        onDone() {},
+        onError(err: unknown) {
+          error = err
+        },
+      }
+    )
+  } catch (err) {
+    error = err
+  }
+
+  assertEquals(chunks, [{ delta: 'partial ' }])
+  assertEquals(secondaryCalled, false)
+  assertStringIncludes(String(error), 'stream dropped')
 })

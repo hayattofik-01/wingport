@@ -90,23 +90,28 @@ class WingQuota {
 
   factory WingQuota.fromJson(Map<String, dynamic> json) {
     return WingQuota(
-      requestsRemaining: (json['requestsRemaining'] as num).toInt(),
-      tokensRemaining: (json['tokensRemaining'] as num).toInt(),
-      resetsAt: DateTime.parse(json['resetsAt'] as String),
+      requestsRemaining: (json['requestsRemaining'] as num?)?.toInt() ?? 0,
+      tokensRemaining: (json['tokensRemaining'] as num?)?.toInt() ?? 0,
+      resetsAt: DateTime.tryParse(json['resetsAt'] as String? ?? '') ??
+          DateTime.now().toUtc().add(const Duration(days: 1)),
     );
   }
 }
 
 /// SDK options.
 class WingportOptions {
+  final Duration connectTimeout;
+  final Duration chunkTimeout;
   final int maxRetries;
-  final Duration timeout;
   final Map<String, String>? headers;
+  final void Function(String)? logger;
 
   const WingportOptions({
-    this.maxRetries = 3,
-    this.timeout = const Duration(seconds: 30),
+    this.connectTimeout = const Duration(seconds: 10),
+    this.chunkTimeout = const Duration(seconds: 30),
+    this.maxRetries = 2,
     this.headers,
+    this.logger,
   });
 }
 

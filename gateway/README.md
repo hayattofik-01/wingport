@@ -2,9 +2,13 @@
 
 Supabase Edge Function gateway.
 
-- Ticket T2: `/v1/generate` and `/v1/stream` with an Anthropic adapter.
-- Ticket T3: Supabase JWT auth middleware (HS256 secret or JWKS).
-- Middleware pipeline is ready for T4 quotas.
+- `/v1/generate` — non-streaming completion.
+- `/v1/stream` — `text/event-stream` of `WingChunk` events.
+- `/v1/quota` — remaining quota for the signed-in user.
+- Anthropic and OpenAI adapters with normalized wire format.
+- Supabase JWT auth middleware (HS256 or JWKS).
+- Per-user quota enforcement and usage metering.
+- Provider fallback before the first streamed token.
 
 ## Run locally
 
@@ -22,24 +26,23 @@ deno task lint
 deno task test
 ```
 
-The test suite runs fixture-driven mocks of Anthropic, including:
+The test suite runs fixture-driven mocks of Anthropic and OpenAI, including:
 
 - SSE event fragmentation
 - mid-UTF-8 character splits
 - passthrough: the first client byte is emitted before the mock server finishes sending
+- provider fallback before the first token and refusal after a token is emitted
 
 ## Auth configuration
 
-The middleware supports two modes:
-
-- `HS256` (default if `SUPABASE_JWT_SECRET` is set): verify tokens with the project's JWT secret.
-- `JWKS` (default otherwise): fetch `SUPABASE_URL/auth/v1/.well-known/jwks.json` and cache keys.
+- `HS256` (default if `WINGPORT_JWT_SECRET` or `SUPABASE_JWT_SECRET` is set): verify tokens with the project's JWT secret.
+- `JWKS` (default otherwise): fetch `<SUPABASE_URL>/auth/v1/.well-known/jwks.json` and cache keys.
 
 Override with `WINGPORT_AUTH_MODE=hs256` or `WINGPORT_AUTH_MODE=jwks`.
 
 | Variable | Purpose |
 |----------|---------|
-| `SUPABASE_JWT_SECRET` | HS256 secret |
+| `WINGPORT_JWT_SECRET` or `SUPABASE_JWT_SECRET` | HS256 secret |
 | `SUPABASE_URL` | Supabase project URL (used for JWKS) |
 | `WINGPORT_AUTH_MODE` | `hs256` or `jwks` |
 | `WINGPORT_ALLOW_ANONYMOUS` | `true` or `false` (default `false`) |
@@ -77,7 +80,7 @@ PY
 # Terminal 2 — run the gateway against the mock
 ANTHROPIC_BASE_URL=http://127.0.0.1:9000 \
 ANTHROPIC_API_KEY=mock \
-SUPABASE_JWT_SECRET=this-is-a-test-secret-which-is-32-bytes! \
+WINGPORT_JWT_SECRET=this-is-a-test-secret-which-is-32-bytes! \
 deno task dev
 
 # Terminal 3 — generate (non-streaming)
@@ -93,6 +96,8 @@ curl -N -X POST http://localhost:8000/v1/stream \
   -d '{"model":"claude-sonnet","prompt":"say hi"}'
 ```
 
-The JWT must be signed with `SUPABASE_JWT_SECRET` for the HS256 path. In Supabase the token is returned by `supabase.auth.getSession()`.
+The JWT must be signed with the configured JWT secret for the HS256 path. In Supabase the token is returned by `supabase.auth.getSession()`.
 
-Replace `claude-sonnet` with the alias you configure in the gateway. The current default model map is `claude-sonnet -> claude-sonnet-4-6`.
+Replace `claude-sonnet` with the alias you configure. Default model maps are:
+- `claude-sonnet -> claude-sonnet-4-6` (Anthropic)
+- `gpt-4o -> gpt-4o` (OpenAI)
