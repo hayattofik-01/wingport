@@ -1,11 +1,11 @@
 {
   "name": "wingport",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "description": "Wingport CLI",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "wingport": "./dist/index.js"
+    "wingport": "dist/index.js"
   },
   "exports": {
     ".": {
@@ -16,11 +16,14 @@
   },
   "files": [
     "dist",
-    "gateway"
+    "gateway",
+    "!**/*.test.*",
+    "!**/*_test.*",
+    "!gateway/deno.lock"
   ],
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc && cp -r ../gateway gateway",
+    "build": "tsc && rm -rf gateway && cp -r ../gateway gateway",
     "test": "vitest run",
     "lint": "eslint . --ext .ts,.tsx"
   },

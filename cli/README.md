@@ -1,6 +1,6 @@
 # Wingport CLI
 
-Node 20+ / TypeScript CLI. Ticket T5 implements `init` and `deploy`.
+Node 20+ / TypeScript CLI, published as `wingport` on npm.
 
 ## Install
 
@@ -9,15 +9,27 @@ cd cli
 npm install
 ```
 
-## Run
+## Usage
+
+In an existing Supabase project:
 
 ```bash
-npm run dev
+npx wingport init    # scaffolds supabase/functions/wingport/ and wingport.config.ts
+npx wingport deploy  # sets secrets, runs supabase db push, and deploys the function
 ```
+
+`wingport init` is idempotent: it refreshes gateway source files but will not overwrite an edited `wingport.config.ts`.
 
 ## Test
 
 ```bash
-npm test
+npm run test
 npm run lint
+```
+
+## Publish
+
+```bash
+npm run build
+npm publish --dry-run
 ```
