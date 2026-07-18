@@ -45,3 +45,5 @@ title: Architecture
 | Gateway function | TypeScript (Deno) | Your Supabase edge | No — `wingport deploy` updates it |
 | Config | TypeScript | Checked into your repo | Yes — it's ~15 lines |
 | Usage tables | SQL | Your Postgres | No — migrations are generated |
+
+---

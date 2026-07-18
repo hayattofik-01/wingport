@@ -1,5 +1,5 @@
 ---
-title: Client
+title: Dart SDK — Client
 ---
 
 > 🚧 Wingport is in active development. The API described here is the v0.1 design. Star the repo to follow along, or join the early access list.
@@ -34,3 +34,5 @@ Wingport.supabase(
   ),
 );
 ```
+
+---

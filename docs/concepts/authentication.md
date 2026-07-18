@@ -22,10 +22,12 @@ The verified user ID (`sub` claim) becomes the identity for quotas and usage met
 
 If your app supports Supabase anonymous sign-ins, set `allowAnonymous: true`. Anonymous users get their own quota rows — useful for try-before-signup flows, with limits keeping abuse bounded.
 
-## Firebase <Badge type="info" text="Planned" />
+## Firebase <span class="VPBadge warning">Planned</span>
 
 `auth: { provider: "firebase" }` will verify Firebase ID tokens, enabling Firebase-auth apps to use a Wingport gateway.
 
 ## Service calls (server-to-server)
 
 For trusted server contexts (cron jobs, admin scripts), mint a service token with the CLI: `wingport token create --role service`. Service calls bypass per-user limits but are still metered.
+
+---

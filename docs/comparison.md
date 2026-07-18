@@ -28,8 +28,10 @@ Wingport is neutral on every axis: any provider (Anthropic, OpenAI, Google), any
 
 OpenRouter and LiteLLM are excellent **server-side** routers: one API across many providers. But they have no concept of your *end users* — no per-user auth, no per-user quotas, no mobile SDK — and OpenRouter is a hosted middleman in your request path.
 
-Wingport is mobile-first: it authenticates individual end users against your existing auth, enforces per-user limits, meters per-user usage, and ships a client SDK built for unreliable networks. You can even use OpenRouter *as a provider inside* Wingport if you want its routing. <Badge type="info" text="Planned" />
+Wingport is mobile-first: it authenticates individual end users against your existing auth, enforces per-user limits, meters per-user usage, and ships a client SDK built for unreliable networks. You can even use OpenRouter *as a provider inside* Wingport if you want its routing. <span class="VPBadge warning">Planned</span>
 
 ## vs. calling providers directly from the app
 
 Shipping `sk-...` in your binary. Please don't. Any user can extract the key via a debugging proxy, and provider terms prohibit client-side keys for exactly this reason. There is no RLS trick or obfuscation that fixes this: **any secret that reaches the client is public.**
+
+---

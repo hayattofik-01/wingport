@@ -35,11 +35,7 @@ supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 supabase secrets set OPENAI_API_KEY=sk-...
 ```
 
-
-:::tip Note
-Keys are stored in your Supabase project's encrypted secrets. They are never sent to, or seen by, Wingport.
-:::
-
+> **Note:** Keys are stored in your Supabase project's encrypted secrets. They are never sent to, or seen by, Wingport.
 
 ## 2. Configure
 
@@ -91,3 +87,5 @@ final wing = Wingport.supabase(Supabase.instance.client);
 ```
 
 The SDK reuses your existing Supabase client — its URL and the current user's session. There is nothing else to configure on the client. No keys. Ever.
+
+---

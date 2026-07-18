@@ -1,5 +1,5 @@
 ---
-title: Anthropic / OpenAI / Google
+title: Providers — Anthropic / OpenAI / Google
 ---
 
 > 🚧 Wingport is in active development. The API described here is the v0.1 design. Star the repo to follow along, or join the early access list.
@@ -40,3 +40,5 @@ google({
 ```
 
 > Concrete model IDs above are illustrative — pin the current IDs from each provider's docs when configuring.
+
+---

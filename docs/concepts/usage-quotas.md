@@ -42,3 +42,5 @@ order by tokens desc;
 ```
 
 No dashboard lock-in: it's your table. (A hosted analytics dashboard is on the roadmap for teams who want it — reading these same tables.)
+
+---

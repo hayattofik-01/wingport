@@ -24,3 +24,5 @@ title: Security Model
 ## Responsible disclosure
 
 Security reports: security@wingport.dev. Please do not open public issues for vulnerabilities.
+
+---

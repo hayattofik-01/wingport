@@ -52,10 +52,11 @@ Wingport is **not a hosted proxy**. The gateway deploys into *your* Supabase pro
 <div class="feature-card"><h3><strong>Mobile-grade streaming</strong></h3><p>The Dart SDK survives network handoffs, resumes streams, and cancels cleanly</p></div>
 <div class="feature-card"><h3><strong>Typed errors</strong></h3><p>A sealed error hierarchy — handle every failure mode at compile time</p></div>
 <div class="feature-card"><h3><strong>Usage in your database</strong></h3><p>Token counts and costs written to your Postgres per user, per model, per request</p></div>
-<div class="feature-card"><h3><strong>Plugin ecosystem</strong></h3><p>Caching, moderation, analytics, and more as drop-in plugins <Badge type="info" text="Planned" /></p></div>
+<div class="feature-card"><h3><strong>Plugin ecosystem</strong></h3><p>Caching, moderation, analytics, and more as drop-in plugins <span class="VPBadge warning">Planned</span></p></div>
 </div>
-
 
 ## Project status
 
 Wingport is pre-1.0 and in active development, built in public. The v0.1 target covers: Supabase deployment, Anthropic + OpenAI providers, streaming and generation from the Dart SDK, per-user quotas, and usage tracking. See the [Roadmap](/reference/roadmap).
+
+---

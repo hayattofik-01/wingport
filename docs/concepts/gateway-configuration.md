@@ -60,11 +60,7 @@ export default defineGateway({
 });
 ```
 
-
-:::tip Design principle
-the client is untrusted. Everything above is enforced server-side. Nothing the Flutter app sends can raise its own limits, access unlisted models, or bypass auth.
-:::
-
+> **Design principle:** the client is untrusted. Everything above is enforced server-side. Nothing the Flutter app sends can raise its own limits, access unlisted models, or bypass auth.
 
 ## Model aliases
 
@@ -78,3 +74,5 @@ anthropic({
   },
 })
 ```
+
+---

@@ -1,5 +1,5 @@
 ---
-title: Error Handling
+title: Dart SDK — Error Handling
 ---
 
 > 🚧 Wingport is in active development. The API described here is the v0.1 design. Star the repo to follow along, or join the early access list.
@@ -45,3 +45,5 @@ class RequestCancelledException extends WingportException {}
 ```
 
 Design intent: **every branch maps to a distinct UI decision.** Quota → show upgrade prompt. Network → show retry. Auth → re-login. Interrupted → keep partial text, offer continue. If two errors would lead you to the same UI, they're the same type.
+
+---

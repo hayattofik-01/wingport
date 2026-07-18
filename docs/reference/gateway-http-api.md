@@ -1,5 +1,5 @@
 ---
-title: Gateway HTTP API
+title: Reference — Gateway HTTP API
 ---
 
 > 🚧 Wingport is in active development. The API described here is the v0.1 design. Star the repo to follow along, or join the early access list.
@@ -42,3 +42,5 @@ data: {"done":true,"usage":{"inputTokens":8,"outputTokens":2},"finishReason":"st
 
 Uniform shape: `{ "error": { "code": "quota_exceeded", "message": "...", "retryAfter": 3600 } }`
 Codes: `unauthorized`, `model_not_allowed`, `quota_exceeded`, `provider_error`, `bad_request`.
+
+---

@@ -25,6 +25,7 @@ export default defineConfig({
           { text: 'Comparison', link: '/comparison' },
           { text: 'Installation', link: '/installation' },
           { text: 'Basic Usage', link: '/basic-usage' },
+          { text: 'FAQ', link: '/faq' },
         ],
       },
       {
@@ -36,6 +37,7 @@ export default defineConfig({
           { text: 'Authentication', link: '/concepts/authentication' },
           { text: 'Usage & Quotas', link: '/concepts/usage-quotas' },
           { text: 'Providers & Fallback', link: '/concepts/providers-fallback' },
+          { text: 'Prompt Templates', link: '/concepts/prompt-templates', badge: { text: 'Planned' } },
           { text: 'Streaming & Resilience', link: '/concepts/streaming-resilience' },
           { text: 'Security Model', link: '/concepts/security-model' },
           { text: 'Database', link: '/concepts/database' },

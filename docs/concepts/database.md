@@ -33,3 +33,5 @@ create table wingport_quota_state (
 ```
 
 Indexes on `(user_id, created_at)` are included. RLS policies: users `select` their own rows; writes are service-role only. Migrations are versioned — `wingport deploy` applies pending ones and never edits your own tables.
+
+---

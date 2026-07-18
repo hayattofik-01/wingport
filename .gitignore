@@ -5,6 +5,11 @@ node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 
+# Next.js / other build artifacts
+/dist/
+/.next/
+/out/
+
 # Misc
 .DS_Store
 *.log

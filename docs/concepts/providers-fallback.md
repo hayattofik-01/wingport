@@ -13,8 +13,8 @@ title: Providers & Fallback
 | Anthropic | ✅ | ✅ | Claude models |
 | OpenAI | ✅ | ✅ | GPT models |
 | Google | ✅ | ✅ | Gemini models |
-| OpenRouter | <Badge type="info" text="Planned" /> | <Badge type="info" text="Planned" /> | Use as a meta-provider |
-| On-device | <Badge type="info" text="Planned" /> | <Badge type="info" text="Planned" /> | Offline fallback via local models |
+| OpenRouter | <span class="VPBadge warning">Planned</span> | <span class="VPBadge warning">Planned</span> | Use as a meta-provider |
+| On-device | <span class="VPBadge warning">Planned</span> | <span class="VPBadge warning">Planned</span> | Offline fallback via local models |
 
 All providers are normalized to one request/response shape. Provider-specific parameters pass through a `providerOptions` escape hatch.
 
@@ -24,6 +24,8 @@ With `fallback: true`, a request that fails with a retryable provider error (`42
 
 Fallback events are recorded in `wingport_usage.provider_used`, so you can see exactly how often your primary is failing over.
 
-## Multimodal <Badge type="info" text="Planned" />
+## Multimodal <span class="VPBadge warning">Planned</span>
 
 Image input (vision) and structured output (JSON mode / tool calling) are designed into the wire format and planned shortly after v0.1. The `WingMessage` type already reserves `parts` for this.
+
+---

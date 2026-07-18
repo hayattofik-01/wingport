@@ -1,5 +1,5 @@
 ---
-title: Cancellation & Lifecycle
+title: Dart SDK — Cancellation & Lifecycle
 ---
 
 > 🚧 Wingport is in active development. The API described here is the v0.1 design. Star the repo to follow along, or join the early access list.
@@ -26,3 +26,5 @@ Cancelling a `stream()` subscription (`sub.cancel()`) also aborts the underlying
 ## App lifecycle
 
 On `AppLifecycleState.paused`, in-flight streams are cancelled and surfaced as `StreamInterruptedException(resumable: ...)`. Pair with your state management to offer "continue generating" on resume.
+
+---

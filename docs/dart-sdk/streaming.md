@@ -1,5 +1,5 @@
 ---
-title: Streaming
+title: Dart SDK — Streaming
 ---
 
 > 🚧 Wingport is in active development. The API described here is the v0.1 design. Star the repo to follow along, or join the early access list.
@@ -39,3 +39,5 @@ final sub = wing
       onDone: () => setState(() => generating = false),
     );
 ```
+
+---

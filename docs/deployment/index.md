@@ -12,14 +12,16 @@ Covered in [Installation](/installation). `wingport deploy` = migrate + deploy f
 
 **Runtime notes:** the gateway is stateless — all state lives in Postgres — so it scales with Supabase's edge runtime. Long generations are bounded by edge function wall-clock limits; the SDK's chunk-timeout and retry semantics are designed around this, and streaming responses are unaffected in typical use.
 
-## Firebase <Badge type="info" text="Planned" />
+## Firebase <span class="VPBadge warning">Planned</span>
 
 Cloud Functions target with Firebase Auth verification and Firestore-backed metering.
 
-## Self-hosted Dart (Shelf) <Badge type="info" text="Planned" />
+## Self-hosted Dart (Shelf) <span class="VPBadge warning">Planned</span>
 
 A pure-Dart gateway for teams running Dart on the server (Shelf/Dart Frog/Serverpod) — one language end to end.
 
-## Wingport Cloud <Badge type="info" text="Planned" />
+## Wingport Cloud <span class="VPBadge warning">Planned</span>
 
 The hosted option for teams who don't want to manage even a config file: managed gateway, key vault, team dashboard, and a managed-keys mode where you skip provider signups entirely and are billed per token. The open-source core remains the foundation — Cloud runs the same code you can read.
+
+---

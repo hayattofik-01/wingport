@@ -1,5 +1,5 @@
 ---
-title: Generating Text
+title: Dart SDK — Generating Text
 ---
 
 > 🚧 Wingport is in active development. The API described here is the v0.1 design. Star the repo to follow along, or join the early access list.
@@ -29,3 +29,5 @@ class WingResult {
   final String finishReason;    // stop | length | error
 }
 ```
+
+---
