@@ -1,0 +1,41 @@
+{
+  "name": "wingport",
+  "version": "0.1.0-alpha.1",
+  "description": "Wingport CLI",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "wingport": "dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "gateway",
+    "!**/*.test.*",
+    "!**/*_test.*",
+    "!gateway/deno.lock"
+  ],
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc && rm -rf gateway && cp -r ../gateway gateway",
+    "test": "vitest run",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "tsx": "^4.15.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.5.2",
+    "vitest": "^1.6.0"
+  }
+}

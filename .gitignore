@@ -1,15 +1,46 @@
 # Dependencies
 node_modules/
+*/node_modules
+/.pnp
+.pnp.js
 
 # VitePress build output
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 
-# Next.js / other build artifacts
-/dist/
+# Next.js
 /.next/
 /out/
+/dist/
+
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# Deno
+deno.lock
+
+# Production
+/build
 
 # Misc
 .DS_Store
+*.pem
 *.log
+
+# Local env files
+.env*.local
+.env
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# CLI build artifacts
+/cli/dist/
+/cli/gateway/
