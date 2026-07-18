@@ -1,25 +1,17 @@
-import type { Usage, UserContext } from './types.ts'
+import type { GenerateRequest, Usage, UserContext } from './types.ts'
 
 export type QuotaResult = {
   allowed: boolean
   retryAfter: number
-  remainingMinute: number
-  remainingDay: number
-  limitMinute: number
-  limitDay: number
-  usedMinute: number
-  usedDay: number
+  requestsRemaining: number
+  tokensRemaining: number
+  resetsAt: string
 }
 
 export type QuotaResponse = {
-  userId: string
-  tier: string
-  limitMinute: number
-  limitDay: number
-  usedMinute: number
-  usedDay: number
-  remainingMinute: number
-  remainingDay: number
+  requestsRemaining: number
+  tokensRemaining: number
+  resetsAt: string
 }
 
 function supabaseUrl(): string | undefined {
@@ -34,7 +26,7 @@ function anonKey(): string | undefined {
   return Deno.env.get('WINGPORT_ANON_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY') ?? undefined
 }
 
-function disabled(): boolean {
+export function disabled(): boolean {
   const v = Deno.env.get('WINGPORT_QUOTA_DISABLED')
   return v === 'true' || v === '1'
 }
@@ -46,7 +38,9 @@ async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T | 
   const serviceRole = serviceRoleKey()
   const anon = anonKey()
   if (!url || !serviceRole || !anon) {
-    console.warn(`[wingport] quota RPC skipped: missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, or SUPABASE_ANON_KEY`)
+    console.warn(
+      `[wingport] quota RPC skipped: missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, or SUPABASE_ANON_KEY`
+    )
     return undefined
   }
 
@@ -54,8 +48,8 @@ async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T | 
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'apikey': anon,
-      'Authorization': `Bearer ${serviceRole}`,
+      apikey: anon,
+      Authorization: `Bearer ${serviceRole}`,
     },
     body: JSON.stringify(args),
   })
@@ -69,12 +63,25 @@ async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T | 
   return (await res.json()) as T
 }
 
-export async function checkAndUseQuota(user: UserContext): Promise<QuotaResult | undefined> {
-  const data = await rpc<Record<string, unknown>>('wingport_check_and_use_quota', {
+function estimateTokens(body?: GenerateRequest): { input: number; output: number } {
+  const inputChars = body?.prompt?.length ??
+    body?.messages?.reduce((acc, m) => acc + (m.content?.length ?? 0), 0) ??
+    0
+  const input = Math.ceil(inputChars / 4)
+  const output = body?.maxTokens ?? 1024
+  return { input, output }
+}
+
+export async function checkAndUseQuota(
+  user: UserContext,
+  body?: GenerateRequest
+): Promise<QuotaResult | undefined> {
+  const { input, output } = estimateTokens(body)
+  const data = await rpc<Record<string, unknown>>('wingport_consume_quota', {
     p_user_id: user.userId,
-    p_tier: user.tier ?? 'free',
-    p_input_tokens: 0,
-    p_output_tokens: 0,
+    p_tier: user.tier ?? 'default',
+    p_input_estimate: input,
+    p_output_estimate: output,
   })
 
   if (!data) return undefined
@@ -82,48 +89,44 @@ export async function checkAndUseQuota(user: UserContext): Promise<QuotaResult |
   return {
     allowed: data.allowed === true,
     retryAfter: Math.max(0, Math.round(Number(data.retry_after ?? 0))),
-    remainingMinute: Number(data.remaining_minute ?? 0),
-    remainingDay: Number(data.remaining_day ?? 0),
-    limitMinute: Number(data.limit_minute ?? 0),
-    limitDay: Number(data.limit_day ?? 0),
-    usedMinute: Number(data.used_minute ?? 0),
-    usedDay: Number(data.used_day ?? 0),
+    requestsRemaining: Number(data.requests_remaining ?? 0),
+    tokensRemaining: Number(data.tokens_remaining ?? 0),
+    resetsAt: String(data.resets_at ?? ''),
   }
 }
 
-export async function getQuota(userId: string): Promise<QuotaResponse | undefined> {
-  const data = await rpc<Record<string, number | string>>('wingport_get_quota', {
-    p_user_id: userId,
+export async function getQuota(user: UserContext): Promise<QuotaResponse | undefined> {
+  const data = await rpc<Record<string, unknown>>('wingport_get_quota', {
+    p_user_id: user.userId,
+    p_tier: user.tier ?? 'default',
   })
 
   if (!data) return undefined
 
   return {
-    userId: String(data.user_id ?? userId),
-    tier: String(data.tier ?? 'free'),
-    limitMinute: (data.limit_minute as number) ?? 0,
-    limitDay: (data.limit_day as number) ?? 0,
-    usedMinute: (data.used_minute as number) ?? 0,
-    usedDay: (data.used_day as number) ?? 0,
-    remainingMinute: (data.remaining_minute as number) ?? 0,
-    remainingDay: (data.remaining_day as number) ?? 0,
+    requestsRemaining: Number(data.requestsRemaining ?? 0),
+    tokensRemaining: Number(data.tokensRemaining ?? 0),
+    resetsAt: String(data.resetsAt ?? ''),
   }
 }
 
 export async function recordUsage(
   user: UserContext,
+  body: GenerateRequest | undefined,
   status: 'ok' | 'error' | 'interrupted',
   provider: string,
-  model: string,
   usage?: Usage
 ): Promise<void> {
+  const estimate = estimateTokens(body)
   await rpc<unknown>('wingport_record_usage', {
     p_user_id: user.userId,
     p_status: status,
-    p_provider: provider,
-    p_model: model,
+    p_model_alias: body?.model ?? '',
+    p_provider_used: provider,
     p_input_tokens: usage?.inputTokens ?? 0,
     p_output_tokens: usage?.outputTokens ?? 0,
-    p_total_tokens: usage?.totalTokens ?? 0,
+    p_input_estimate: estimate.input,
+    p_output_estimate: estimate.output,
+    p_duration_ms: null,
   })
 }

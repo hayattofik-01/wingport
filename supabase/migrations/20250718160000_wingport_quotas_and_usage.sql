@@ -1,224 +1,225 @@
--- Wingport per-user quota and usage metering.
--- Stripe-for-AI primitives: founders meter AI spend per user.
+-- Wingport v0.1 quota and usage metering.
+-- See DEVIN.md §3.3 — schema is verbatim.
 
--- Quotas per user. Windows roll over each minute and each day.
-CREATE TABLE IF NOT EXISTS public.wingport_quotas (
-  user_id TEXT PRIMARY KEY,
-  tier TEXT NOT NULL DEFAULT 'free',
-  minute_limit INTEGER NOT NULL DEFAULT 10,
-  daily_limit INTEGER NOT NULL DEFAULT 100,
-  used_minute INTEGER NOT NULL DEFAULT 0,
-  used_day INTEGER NOT NULL DEFAULT 0,
-  minute_window_start TIMESTAMPTZ NOT NULL DEFAULT date_trunc('minute', now()),
-  day_window_start TIMESTAMPTZ NOT NULL DEFAULT date_trunc('day', now()),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+-- Usage log: one row per completed (or failed/interrupted) request.
+create table wingport_usage (
+  id            bigint generated always as identity primary key,
+  user_id       uuid not null,
+  model_alias   text not null,
+  provider_used text not null,
+  input_tokens  int not null default 0,
+  output_tokens int not null default 0,
+  total_tokens  int generated always as (input_tokens + output_tokens) stored,
+  status        text not null,
+  duration_ms   int,
+  created_at    timestamptz not null default now()
 );
 
--- Token-level usage log for every generate/stream call.
-CREATE TABLE IF NOT EXISTS public.wingport_usage (
-  id BIGSERIAL PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('ok', 'error', 'interrupted')),
-  model TEXT,
-  provider TEXT,
-  input_tokens INTEGER NOT NULL DEFAULT 0,
-  output_tokens INTEGER NOT NULL DEFAULT 0,
-  total_tokens INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+create index on wingport_usage (user_id, created_at);
+
+-- Quota state: one row per user, updated atomically.
+create table wingport_quota_state (
+  user_id       uuid primary key,
+  day           date not null,
+  requests_used int not null default 0,
+  tokens_used   int not null default 0,
+  minute_bucket timestamptz,
+  minute_count  int not null default 0
 );
 
--- Indexes for dashboard/billing queries.
-CREATE INDEX IF NOT EXISTS idx_wingport_usage_user_id ON public.wingport_usage (user_id);
-CREATE INDEX IF NOT EXISTS idx_wingport_usage_created_at ON public.wingport_usage (created_at);
+-- Row-level security: users can read their own rows only.
+alter table wingport_usage enable row level security;
+alter table wingport_quota_state enable row level security;
 
--- Row-level security: users can only read their own rows.
-ALTER TABLE public.wingport_quotas ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.wingport_usage ENABLE ROW LEVEL SECURITY;
+create policy wingport_usage_select_own
+  on wingport_usage
+  for select
+  to authenticated
+  using (user_id = auth.uid());
 
-DROP POLICY IF EXISTS wingport_quotas_select_own ON public.wingport_quotas;
-CREATE POLICY wingport_quotas_select_own
-  ON public.wingport_quotas
-  FOR SELECT
-  TO authenticated
-  USING (user_id = auth.uid()::text);
+create policy wingport_quota_state_select_own
+  on wingport_quota_state
+  for select
+  to authenticated
+  using (user_id = auth.uid());
 
-DROP POLICY IF EXISTS wingport_usage_select_own ON public.wingport_usage;
-CREATE POLICY wingport_usage_select_own
-  ON public.wingport_usage
-  FOR SELECT
-  TO authenticated
-  USING (user_id = auth.uid()::text);
+-- Service role bypasses RLS for writes.
 
--- Service role bypasses RLS automatically; anon has no access.
+-- Tier limits. Expand as needed; unknown tiers fall back to 'default'.
+create or replace function wingport_tier_limits(p_tier text)
+returns table (
+  requests_per_minute int,
+  requests_per_day int,
+  tokens_per_day int
+) as $$
+begin
+  return query select
+    case p_tier
+      when 'pro' then 100
+      when 'enterprise' then 1000
+      else 10
+    end,
+    case p_tier
+      when 'pro' then 1000
+      when 'enterprise' then 10000
+      else 50
+    end,
+    case p_tier
+      when 'pro' then 2000000
+      when 'enterprise' then 10000000
+      else 100000
+    end;
+end;
+$$ language plpgsql immutable;
 
--- Tier defaults. Kept in a function so limits are easy to change centrally.
-CREATE OR REPLACE FUNCTION public.wingport_tier_limits(p_tier TEXT)
-RETURNS TABLE (minute_limit INTEGER, daily_limit INTEGER) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    CASE
-      WHEN p_tier = 'enterprise' THEN 1000
-      WHEN p_tier = 'pro' THEN 100
-      ELSE 10
-    END,
-    CASE
-      WHEN p_tier = 'enterprise' THEN 100000
-      WHEN p_tier = 'pro' THEN 10000
-      ELSE 100
-    END;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
--- Atomically check, roll over minute/day windows, and consume one request.
--- The INSERT ... ON CONFLICT ensures the row exists with the right window,
--- then the UPDATE increments only if the user is still under the limit.
--- Because both statements touch the same primary-key row, concurrent calls
--- serialize on the row lock, so a burst cannot overshoot the limit.
-CREATE OR REPLACE FUNCTION public.wingport_check_and_use_quota(
-  p_user_id TEXT,
-  p_tier TEXT DEFAULT 'free',
-  p_input_tokens INTEGER DEFAULT 0,
-  p_output_tokens INTEGER DEFAULT 0
+-- Atomically consume quota. Returns allowed boolean, remaining quota,
+-- and retry_after seconds (0 when allowed, >0 when denied).
+-- Implemented as a single INSERT ... ON CONFLICT ... WHERE so concurrent
+-- calls serialize on the primary-key row and cannot overshoot limits.
+create or replace function wingport_consume_quota(
+  p_user_id uuid,
+  p_tier text,
+  p_input_estimate int default 0,
+  p_output_estimate int default 0
 )
-RETURNS JSON AS $$
-DECLARE
-  v_now TIMESTAMPTZ := now();
-  v_minute TIMESTAMPTZ := date_trunc('minute', v_now);
-  v_day TIMESTAMPTZ := date_trunc('day', v_now);
-  v_minute_limit INTEGER;
-  v_daily_limit INTEGER;
-  v_allowed BOOLEAN := false;
-  v_retry_after INTEGER := 0;
-  v_used_minute INTEGER;
-  v_used_day INTEGER;
-BEGIN
-  SELECT l.minute_limit, l.daily_limit
-  INTO v_minute_limit, v_daily_limit
-  FROM public.wingport_tier_limits(p_tier) l;
+returns json as $$
+declare
+  v_now timestamptz := now();
+  v_day date := (v_now at time zone 'UTC')::date;
+  v_minute timestamptz := date_trunc('minute', v_now);
+  v_rpm int;
+  v_rpd int;
+  v_tpd int;
+  v_estimate int := p_input_estimate + p_output_estimate;
+  v_allowed boolean := false;
+  v_retry_after int := 0;
+  v_row wingport_quota_state%rowtype;
+begin
+  select l.requests_per_minute, l.requests_per_day, l.tokens_per_day
+  into v_rpm, v_rpd, v_tpd
+  from wingport_tier_limits(p_tier) l;
 
-  INSERT INTO public.wingport_quotas (
-    user_id, tier, minute_limit, daily_limit, used_minute, used_day,
-    minute_window_start, day_window_start
+  insert into wingport_quota_state as q (
+    user_id, day, requests_used, tokens_used, minute_bucket, minute_count
   )
-  VALUES (p_user_id, p_tier, v_minute_limit, v_daily_limit, 0, 0, v_minute, v_day)
-  ON CONFLICT (user_id) DO UPDATE SET
-    tier = EXCLUDED.tier,
-    minute_limit = EXCLUDED.minute_limit,
-    daily_limit = EXCLUDED.daily_limit,
-    used_minute = CASE
-      WHEN public.wingport_quotas.minute_window_start = EXCLUDED.minute_window_start
-      THEN public.wingport_quotas.used_minute
-      ELSE 0
-    END,
-    used_day = CASE
-      WHEN public.wingport_quotas.day_window_start = EXCLUDED.day_window_start
-      THEN public.wingport_quotas.used_day
-      ELSE 0
-    END,
-    minute_window_start = EXCLUDED.minute_window_start,
-    day_window_start = EXCLUDED.day_window_start,
-    updated_at = v_now;
+  values (p_user_id, v_day, 1, v_estimate, v_minute, 1)
+  on conflict (user_id) do update set
+    day = excluded.day,
+    requests_used = case
+      when q.day is distinct from excluded.day then excluded.requests_used
+      else q.requests_used + excluded.requests_used
+    end,
+    tokens_used = case
+      when q.day is distinct from excluded.day then excluded.tokens_used
+      else q.tokens_used + excluded.tokens_used
+    end,
+    minute_bucket = excluded.minute_bucket,
+    minute_count = case
+      when q.minute_bucket is distinct from excluded.minute_bucket then excluded.minute_count
+      else q.minute_count + excluded.minute_count
+    end
+  where
+    (q.day is distinct from excluded.day or q.requests_used < v_rpd)
+    and (q.day is distinct from excluded.day or q.tokens_used + excluded.tokens_used <= v_tpd)
+    and (q.minute_bucket is distinct from excluded.minute_bucket or q.minute_count < v_rpm)
+  returning * into v_row;
 
-  UPDATE public.wingport_quotas
-  SET used_minute = used_minute + 1,
-      used_day = used_day + 1,
-      updated_at = v_now
-  WHERE user_id = p_user_id
-    AND used_minute < minute_limit
-    AND used_day < daily_limit
-  RETURNING used_minute, used_day INTO v_used_minute, v_used_day;
-
-  IF FOUND THEN
+  if found then
     v_allowed := true;
-  ELSE
-    -- Pull current usage to decide which window is exhausted.
-    SELECT used_minute, used_day, minute_limit, daily_limit
-    INTO v_used_minute, v_used_day, v_minute_limit, v_daily_limit
-    FROM public.wingport_quotas
-    WHERE user_id = p_user_id;
+    return json_build_object(
+      'allowed', true,
+      'retry_after', 0,
+      'requests_used', v_row.requests_used,
+      'tokens_used', v_row.tokens_used,
+      'requests_remaining', greatest(0, v_rpd - v_row.requests_used),
+      'tokens_remaining', greatest(0, v_tpd - v_row.tokens_used),
+      'resets_at', (v_day + interval '1 day')::timestamptz
+    );
+  end if;
 
-    IF v_used_day >= v_daily_limit THEN
-      v_retry_after := GREATEST(0, EXTRACT(EPOCH FROM (v_day + INTERVAL '1 day' - v_now))::INTEGER) + 1;
-    ELSE
-      v_retry_after := GREATEST(0, EXTRACT(EPOCH FROM (v_minute + INTERVAL '1 minute' - v_now))::INTEGER) + 1;
-    END IF;
-  END IF;
+  -- Denied: read current state to compute retry_after and remaining.
+  select * into v_row from wingport_quota_state where user_id = p_user_id;
 
-  RETURN json_build_object(
-    'allowed', v_allowed,
+  if v_row.day is distinct from v_day or v_row.requests_used >= v_rpd or v_row.tokens_used >= v_tpd then
+    v_retry_after := greatest(0, extract(epoch from ((v_day + interval '1 day') at time zone 'UTC' - v_now))::int) + 1;
+  else
+    v_retry_after := greatest(0, extract(epoch from (v_minute + interval '1 minute' - v_now))::int) + 1;
+  end if;
+
+  return json_build_object(
+    'allowed', false,
     'retry_after', v_retry_after,
-    'limit_minute', v_minute_limit,
-    'limit_day', v_daily_limit,
-    'used_minute', v_used_minute,
-    'used_day', v_used_day,
-    'remaining_minute', GREATEST(0, v_minute_limit - v_used_minute),
-    'remaining_day', GREATEST(0, v_daily_limit - v_used_day)
+    'requests_used', coalesce(v_row.requests_used, 0),
+    'tokens_used', coalesce(v_row.tokens_used, 0),
+    'requests_remaining', greatest(0, v_rpd - coalesce(v_row.requests_used, 0)),
+    'tokens_remaining', greatest(0, v_tpd - coalesce(v_row.tokens_used, 0)),
+    'resets_at', (v_day + interval '1 day')::timestamptz
   );
-END;
-$$ LANGUAGE plpgsql;
+end;
+$$ language plpgsql;
 
--- Record usage after a generate/stream call completes.
-CREATE OR REPLACE FUNCTION public.wingport_record_usage(
-  p_user_id TEXT,
-  p_status TEXT,
-  p_model TEXT,
-  p_provider TEXT,
-  p_input_tokens INTEGER,
-  p_output_tokens INTEGER,
-  p_total_tokens INTEGER
+-- Record a completed request and settle token usage from estimate to actual.
+create or replace function wingport_record_usage(
+  p_user_id uuid,
+  p_status text,
+  p_model_alias text,
+  p_provider_used text,
+  p_input_tokens int,
+  p_output_tokens int,
+  p_input_estimate int,
+  p_output_estimate int,
+  p_duration_ms int default null
 )
-RETURNS VOID AS $$
-BEGIN
-  INSERT INTO public.wingport_usage (
-    user_id, status, model, provider, input_tokens, output_tokens, total_tokens
+returns void as $$
+declare
+  v_delta int := (p_input_tokens + p_output_tokens) - (p_input_estimate + p_output_estimate);
+begin
+  insert into wingport_usage (
+    user_id, model_alias, provider_used, input_tokens, output_tokens, status, duration_ms
   )
-  VALUES (p_user_id, p_status, p_model, p_provider, p_input_tokens, p_output_tokens, p_total_tokens);
-END;
-$$ LANGUAGE plpgsql;
+  values (p_user_id, p_model_alias, p_provider_used, p_input_tokens, p_output_tokens, p_status, p_duration_ms);
+
+  update wingport_quota_state
+  set tokens_used = greatest(0, tokens_used + v_delta)
+  where user_id = p_user_id;
+end;
+$$ language plpgsql;
 
 -- Get current quota for GET /v1/quota.
-CREATE OR REPLACE FUNCTION public.wingport_get_quota(p_user_id TEXT)
-RETURNS JSON AS $$
-DECLARE
-  v_row public.wingport_quotas%ROWTYPE;
-  v_minute_limit INTEGER;
-  v_daily_limit INTEGER;
-BEGIN
-  SELECT * INTO v_row FROM public.wingport_quotas WHERE user_id = p_user_id;
+create or replace function wingport_get_quota(
+  p_user_id uuid,
+  p_tier text default 'default'
+)
+returns json as $$
+declare
+  v_now timestamptz := now();
+  v_day date := (v_now at time zone 'UTC')::date;
+  v_rpd int;
+  v_tpd int;
+  v_row wingport_quota_state%rowtype;
+begin
+  select l.requests_per_day, l.tokens_per_day into v_rpd, v_tpd
+  from wingport_tier_limits(p_tier) l;
 
-  IF FOUND THEN
-    RETURN json_build_object(
-      'user_id', v_row.user_id,
-      'tier', v_row.tier,
-      'limit_minute', v_row.minute_limit,
-      'limit_day', v_row.daily_limit,
-      'used_minute', v_row.used_minute,
-      'used_day', v_row.used_day,
-      'remaining_minute', GREATEST(0, v_row.minute_limit - v_row.used_minute),
-      'remaining_day', GREATEST(0, v_row.daily_limit - v_row.used_day)
+  select * into v_row from wingport_quota_state where user_id = p_user_id;
+
+  if found then
+    return json_build_object(
+      'requestsRemaining', greatest(0, v_rpd - v_row.requests_used),
+      'tokensRemaining', greatest(0, v_tpd - v_row.tokens_used),
+      'resetsAt', (v_row.day + interval '1 day')::timestamptz
     );
-  END IF;
+  end if;
 
-  -- No row yet: return the tier defaults.
-  SELECT l.minute_limit, l.daily_limit INTO v_minute_limit, v_daily_limit
-  FROM public.wingport_tier_limits('free') l;
-
-  RETURN json_build_object(
-    'user_id', p_user_id,
-    'tier', 'free',
-    'limit_minute', v_minute_limit,
-    'limit_day', v_daily_limit,
-    'used_minute', 0,
-    'used_day', 0,
-    'remaining_minute', v_minute_limit,
-    'remaining_day', v_daily_limit
+  return json_build_object(
+    'requestsRemaining', v_rpd,
+    'tokensRemaining', v_tpd,
+    'resetsAt', (v_day + interval '1 day')::timestamptz
   );
-END;
-$$ LANGUAGE plpgsql;
+end;
+$$ language plpgsql;
 
--- Grant execute on the functions to the roles Supabase uses.
-GRANT EXECUTE ON FUNCTION public.wingport_check_and_use_quota(TEXT, TEXT, INTEGER, INTEGER) TO anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.wingport_record_usage(TEXT, TEXT, TEXT, TEXT, INTEGER, INTEGER, INTEGER) TO service_role;
-GRANT EXECUTE ON FUNCTION public.wingport_get_quota(TEXT) TO anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.wingport_tier_limits(TEXT) TO anon, authenticated, service_role;
+grant execute on function wingport_consume_quota(uuid, text, int, int) to anon, authenticated, service_role;
+grant execute on function wingport_record_usage(uuid, text, text, text, int, int, int, int, int) to service_role;
+grant execute on function wingport_get_quota(uuid, text) to anon, authenticated, service_role;
+grant execute on function wingport_tier_limits(text) to anon, authenticated, service_role;

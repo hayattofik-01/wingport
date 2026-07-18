@@ -9,7 +9,7 @@ export async function handleQuota(ctx: Context): Promise<Response> {
     )
   }
 
-  const quota = await getQuota(ctx.user.userId)
+  const quota = await getQuota(ctx.user)
   if (!quota) {
     return new Response(
       JSON.stringify({ error: { code: 'provider_error', message: 'Quota service unavailable' } }),

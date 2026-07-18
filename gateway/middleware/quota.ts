@@ -1,13 +1,26 @@
-import type { Middleware } from '../types.ts'
+import type { GenerateRequest, Middleware } from '../types.ts'
 import { checkAndUseQuota } from '../usage.ts'
 
 export function quotaMiddleware(): Middleware {
   return async (ctx, next) => {
-    if (!ctx.user) {
+    const { pathname } = ctx.url
+    const isChargeable = pathname.endsWith('/v1/generate') || pathname.endsWith('/v1/stream')
+
+    if (!ctx.user || !isChargeable) {
       return await next()
     }
 
-    const quota = await checkAndUseQuota(ctx.user)
+    let body: GenerateRequest | undefined
+    if (ctx.request.method === 'POST') {
+      try {
+        body = (await ctx.request.json()) as GenerateRequest
+        ctx.body = body
+      } catch {
+        // Not JSON or invalid; let the router return bad_request.
+      }
+    }
+
+    const quota = await checkAndUseQuota(ctx.user, body)
     if (!quota) {
       return await next()
     }
@@ -19,9 +32,6 @@ export function quotaMiddleware(): Middleware {
             code: 'quota_exceeded',
             message: 'Quota exceeded',
             retryAfter: quota.retryAfter,
-            limit: quota.limitMinute,
-            used: quota.usedMinute,
-            resetsAt: new Date(Date.now() + quota.retryAfter * 1000).toISOString(),
           },
         }),
         {

@@ -5,15 +5,26 @@ import { ProviderError } from './generate.ts'
 import { recordUsage } from '../usage.ts'
 
 export async function handleStream(ctx: Context): Promise<Response> {
-  let body: GenerateRequest
-  try {
-    body = await ctx.request.json()
-  } catch {
+  const body = ctx.body ?? (await parseBody(ctx))
+  if (!body) {
     return jsonError('bad_request', 'Invalid JSON body')
   }
 
   const modelAlias = body.model
-  const provider = getProviderForAlias(modelAlias)
+  if (!modelAlias) {
+    return jsonError('bad_request', 'Missing model')
+  }
+
+  let provider
+  try {
+    provider = getProviderForAlias(modelAlias)
+  } catch (err) {
+    if (err instanceof ProviderError) {
+      return jsonError(err.code, err.message)
+    }
+    return jsonError('provider_error', (err as Error).message)
+  }
+
   if (!provider) {
     return jsonError('model_not_allowed', `Model ${modelAlias} is not allowed`)
   }
@@ -41,13 +52,13 @@ export async function handleStream(ctx: Context): Promise<Response> {
       },
       async onDone() {
         if (ctx.user) {
-          await recordUsage(ctx.user, 'ok', provider.name, modelAlias, usage).catch(() => {})
+          await recordUsage(ctx.user, body, 'ok', provider!.name, usage).catch(() => {})
         }
         await writer.close()
       },
       async onError(err: unknown) {
         if (ctx.user) {
-          await recordUsage(ctx.user, 'error', provider.name, modelAlias, usage).catch(() => {})
+          await recordUsage(ctx.user, body, 'error', provider!.name, usage).catch(() => {})
         }
         const message = err instanceof ProviderError ? err.message : (err as Error).message
         const code = err instanceof ProviderError ? err.code : 'provider_error'
@@ -57,7 +68,7 @@ export async function handleStream(ctx: Context): Promise<Response> {
     })
     .catch(async (err: unknown) => {
       if (ctx.user) {
-        await recordUsage(ctx.user, 'error', provider.name, modelAlias, usage).catch(() => {})
+        await recordUsage(ctx.user, body, 'error', provider!.name, usage).catch(() => {})
       }
       const message = err instanceof ProviderError ? err.message : (err as Error).message
       const code = err instanceof ProviderError ? err.code : 'provider_error'
@@ -66,6 +77,14 @@ export async function handleStream(ctx: Context): Promise<Response> {
     })
 
   return sseResponse(readable)
+}
+
+async function parseBody(ctx: Context): Promise<GenerateRequest | undefined> {
+  try {
+    return (await ctx.request.json()) as GenerateRequest
+  } catch {
+    return undefined
+  }
 }
 
 function jsonError(code: string, message: string): Response {
