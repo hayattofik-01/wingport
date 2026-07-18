@@ -1,10 +1,11 @@
+import { Check } from 'lucide-react'
 import { GITHUB_URL } from '@/lib/site'
 
 const milestones = [
   {
     title: 'v0.1 Core loop',
     desc: 'Supabase deploy, Anthropic + OpenAI, streaming, quotas',
-    status: 'in progress',
+    status: 'done',
   },
   {
     title: 'v0.2 Templates + resilience',
@@ -38,15 +39,18 @@ export default function Roadmap() {
               className="relative overflow-hidden rounded-2xl border border-wing-border bg-wing-raised p-6"
             >
               {i < milestones.length - 1 && (
-                <div className="hidden md:block absolute top-1/2 -right-2 h-[2px] w-4 bg-wing-border" aria-hidden="true" />
+                <div className="absolute -right-2 top-1/2 hidden h-[2px] w-4 bg-wing-border md:block" aria-hidden="true" />
               )}
               <span
-                className={`mb-3 inline-block min-w-0 max-w-full break-words rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${
-                  m.status === 'in progress'
-                    ? 'bg-wing-warn/15 text-wing-warn'
-                    : 'bg-wing-raised text-wing-dim border border-wing-border'
+                className={`mb-3 inline-flex min-w-0 max-w-full items-center gap-1.5 break-words rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${
+                  m.status === 'done'
+                    ? 'bg-wing-signal/15 text-wing-signal'
+                    : m.status === 'in progress'
+                      ? 'bg-wing-warn/15 text-wing-warn'
+                      : 'border border-wing-border bg-wing-raised text-wing-dim'
                 }`}
               >
+                {m.status === 'done' && <Check className="h-3 w-3" aria-hidden="true" />}
                 {m.status}
               </span>
               <h3 className="mb-2 break-words font-display text-base font-medium text-wing-text">{m.title}</h3>

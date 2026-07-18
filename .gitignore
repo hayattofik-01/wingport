@@ -26,3 +26,7 @@
 
 # TypeScript
 *.tsbuildinfo
+
+# VitePress build output (when docs branch files exist)
+docs/.vitepress/dist/
+docs/.vitepress/cache/
