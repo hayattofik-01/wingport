@@ -1,0 +1,38 @@
+# Dependencies
+/node_modules
+*/node_modules
+/.pnp
+.pnp.js
+
+# Next.js
+/.next/
+/out/
+/dist/
+
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# Deno
+deno.lock
+
+# Production
+/build
+
+# Misc
+.DS_Store
+*.pem
+*.log
+
+# Local env files
+.env*.local
+.env
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts

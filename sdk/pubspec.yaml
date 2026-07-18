@@ -1,0 +1,11 @@
+name: wingport
+description: Wingport Dart SDK
+version: 0.1.0
+homepage: https://github.com/hayattofik-01/wingport
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dev_dependencies:
+  lints: ^4.0.0
+  test: ^1.25.0

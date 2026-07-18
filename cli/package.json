@@ -1,0 +1,24 @@
+{
+  "name": "wingport",
+  "version": "0.1.0",
+  "description": "Wingport CLI",
+  "type": "module",
+  "bin": {
+    "wingport": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
+    "eslint": "^8.57.0",
+    "tsx": "^4.15.6",
+    "typescript": "^5.5.2",
+    "vitest": "^1.6.0"
+  }
+}

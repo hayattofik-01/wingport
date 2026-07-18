@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+      - name: Lint
+        working-directory: ./gateway
+        run: deno lint
+      - name: Test
+        working-directory: ./gateway
+        run: deno task test
+
+  cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install
+        working-directory: ./cli
+        run: npm ci
+      - name: Lint
+        working-directory: ./cli
+        run: npm run lint
+      - name: Test
+        working-directory: ./cli
+        run: npm test
+
+  sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Install
+        working-directory: ./sdk
+        run: dart pub get
+      - name: Analyze
+        working-directory: ./sdk
+        run: dart analyze
+      - name: Test
+        working-directory: ./sdk
+        run: dart test
