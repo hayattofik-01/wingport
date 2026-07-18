@@ -186,10 +186,6 @@ Wingport is young — this is the best moment to shape it.
 
 See [docs/](./docs) for the full documentation: architecture, gateway config, SDK reference, security model.
 
-## Security
-
-The security model is documented in [docs](./docs). Report vulnerabilities to **security@wingport.dev** — please don't open public issues for them.
-
 ## License
 
 MIT — free forever, including commercially. The self-hosted core will never be feature-gated.
@@ -200,6 +196,6 @@ MIT — free forever, including commercially. The self-hosted core will never be
 
 **Wingport** — the wire between your app and AI.
 
-*Built with 3 years of Flutter scar tissue, in public, starting now.*
+*Built with 4 years of Flutter scar tissue, in public, starting now.*
 
 </div>
