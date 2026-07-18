@@ -10,11 +10,41 @@ http.Client _mockClient(http.Response Function(http.Request) handler) {
   return MockClient((request) async => handler(request));
 }
 
+class _CountingClient extends http.BaseClient {
+  _CountingClient(this._inner);
+
+  final http.Client _inner;
+  int closeCount = 0;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) => _inner.send(request);
+
+  @override
+  void close() {
+    closeCount++;
+    _inner.close();
+  }
+}
+
+class _ChunkedClient extends http.BaseClient {
+  _ChunkedClient(this._chunks);
+
+  final Stream<List<int>> _chunks;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    return http.StreamedResponse(_chunks, 200, headers: {
+      'content-type': 'text/event-stream',
+    });
+  }
+}
+
 void main() {
   final endpoint = Uri.parse('http://localhost:8000/functions/v1/wingport');
 
-  test('generate returns a parsed result', () async {
+  test('generate builds the correct endpoint and returns a parsed result', () async {
     final client = _mockClient((req) {
+      expect(req.url.toString(), 'http://localhost:8000/functions/v1/wingport/v1/generate');
       expect(req.headers['Authorization'], 'Bearer token-123');
       final body = jsonDecode(req.body) as Map<String, dynamic>;
       expect(body['model'], 'claude-sonnet');
@@ -136,13 +166,14 @@ void main() {
     expect(calls, 2);
   });
 
-  test('stream yields deltas and a done chunk', () async {
+  test('stream builds the correct endpoint and yields deltas and a done chunk', () async {
     final sseBody = utf8.encode(
       'data: {"delta":"Hel"}\n\n'
       'data: {"delta":"lo"}\n\n'
       'data: {"done":true,"usage":{"inputTokens":1,"outputTokens":2,"totalTokens":3},"finishReason":"stop"}\n\n',
     );
     final client = _mockClient((req) {
+      expect(req.url.toString(), 'http://localhost:8000/functions/v1/wingport/v1/stream');
       expect(req.headers['Authorization'], 'Bearer token-123');
       return http.Response.bytes(sseBody, 200);
     });
@@ -159,6 +190,63 @@ void main() {
     expect(chunks[1].delta, 'lo');
     expect(chunks[2].done, true);
     expect(chunks[2].usage?.totalTokens, 3);
+  });
+
+  test('stream does not close a caller-injected client', () async {
+    final sseBody = utf8.encode(
+      'data: {"done":true,"usage":{"inputTokens":1,"outputTokens":2,"totalTokens":3},"finishReason":"stop"}\n\n',
+    );
+    final jsonBody = jsonEncode({
+      'text': 'ok',
+      'usage': {'inputTokens': 1, 'outputTokens': 1, 'totalTokens': 2},
+      'provider': 'anthropic',
+      'finishReason': 'stop',
+    });
+    final mock = _mockClient((req) {
+      if (req.url.path.endsWith('/v1/stream')) {
+        return http.Response.bytes(sseBody, 200);
+      }
+      return http.Response(jsonBody, 200);
+    });
+    final counting = _CountingClient(mock);
+
+    final wing = Wingport(
+      endpoint: endpoint,
+      tokenProvider: () async => 'token',
+      client: counting,
+    );
+
+    await wing.stream(model: 'claude-sonnet', prompt: 'hi').toList();
+    expect(counting.closeCount, 0);
+
+    // The same client must still be usable for a subsequent generate call.
+    final result = await wing.generate(model: 'claude-sonnet', prompt: 'hi');
+    expect(result.text, 'ok');
+    expect(counting.closeCount, 0);
+  });
+
+  test('stream preserves multi-byte UTF-8 characters split across chunks', () async {
+    final event =
+        'data: {"delta":"café"}\n\n'
+        'data: {"done":true,"usage":{"inputTokens":1,"outputTokens":1,"totalTokens":2},"finishReason":"stop"}\n\n';
+    final bytes = utf8.encode(event);
+    // Split inside the 'é' UTF-8 sequence (0xC3 0xA9).
+    final splitAt = bytes.indexOf(0xC3) + 1;
+    final stream = Stream.fromIterable([
+      bytes.sublist(0, splitAt),
+      bytes.sublist(splitAt),
+    ]);
+
+    final wing = Wingport(
+      endpoint: endpoint,
+      tokenProvider: () async => 'token',
+      client: _ChunkedClient(stream),
+    );
+
+    final chunks = await wing.stream(model: 'claude-sonnet', prompt: 'hi').toList();
+    expect(chunks, hasLength(2));
+    expect(chunks[0].delta, 'café');
+    expect(chunks[1].done, true);
   });
 
   test('stream emits error event as StreamInterruptedException with partial text', () async {
