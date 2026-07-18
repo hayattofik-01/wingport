@@ -11,15 +11,15 @@ export default function Templates() {
   return (
     <section className="px-6 py-24 md:py-32" id="templates">
       <div className="mx-auto max-w-[1080px]">
-        <div className="mb-3 flex items-center gap-3">
-          <p className="text-xs font-medium uppercase tracking-[0.12em] text-wing-signal">Coming in v0.2</p>
+        <p className="mb-3 text-xs font-medium uppercase tracking-[0.12em] text-wing-signal">Coming in v0.2</p>
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <h2 className="font-display text-[clamp(1.6rem,3.5vw,2.2rem)] font-medium text-wing-text">
+            Your prompts belong server-side too.
+          </h2>
           <span className="rounded-full bg-wing-warn/15 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-wing-warn">
             planned
           </span>
         </div>
-        <h2 className="mb-6 font-display text-[clamp(1.6rem,3.5vw,2.2rem)] font-medium text-wing-text">
-          Your prompts belong server-side too.
-        </h2>
         <p className="mb-10 max-w-[620px] text-[1.06rem] leading-[1.7] text-wing-dim">
           For many AI apps, the prompt is the product — and today it ships inside the binary where anyone can extract it, and every improvement needs an app-store review. Wingport templates move prompts into your gateway: the app sends only the data, by name.
         </p>
