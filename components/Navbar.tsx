@@ -15,16 +15,16 @@ export default function Navbar() {
           wingport
         </a>
 
-        <nav className="hidden items-center gap-6 md:flex" aria-label="Main navigation">
+        <nav className="hidden items-center gap-6 whitespace-nowrap md:flex lg:gap-8" aria-label="Main navigation">
           <a
             href="#pain"
-            className="text-sm font-medium text-wing-dim transition-colors hover:text-wing-text"
+            className="inline-flex items-center text-sm font-medium text-wing-dim transition-colors hover:text-wing-text"
           >
             Why
           </a>
           <a
             href={DOCS_URL}
-            className="text-sm font-medium text-wing-dim transition-colors hover:text-wing-text"
+            className="inline-flex items-center text-sm font-medium text-wing-dim transition-colors hover:text-wing-text"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -32,13 +32,13 @@ export default function Navbar() {
           </a>
           <a
             href="#roadmap"
-            className="text-sm font-medium text-wing-dim transition-colors hover:text-wing-text"
+            className="inline-flex items-center text-sm font-medium text-wing-dim transition-colors hover:text-wing-text"
           >
             Roadmap
           </a>
           <a
             href={GITHUB_URL}
-            className="flex items-center gap-1.5 text-sm font-medium text-wing-dim transition-colors hover:text-wing-text"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-wing-dim transition-colors hover:text-wing-text"
             target="_blank"
             rel="noopener noreferrer"
           >
