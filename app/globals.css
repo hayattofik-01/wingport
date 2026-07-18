@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-wing-bg text-wing-text antialiased;
+}
+
+::selection {
+  background: rgba(61, 220, 151, 0.25);
+}
+
+/* Focus rings */
+:focus-visible {
+  outline: 2px solid #3DDC97;
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0A0E14;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #232B3A;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3DDC97;
+}
+
+/* Code block tokens */
+.shiki {
+  background: #111722 !important;
+  border-radius: 14px;
+  padding: 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  overflow-x: auto;
+}
+
+.shiki code {
+  font-family: var(--font-jetbrains), monospace;
+}
+
+@media (max-width: 480px) {
+  .shiki {
+    font-size: 0.8rem;
+    padding: 1rem;
+  }
+}
+
+/* Minimum tap target */
+a,
+button {
+  min-height: 44px;
+  min-width: 44px;
+}

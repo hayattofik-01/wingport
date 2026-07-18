@@ -3,6 +3,7 @@
 */node_modules
 /.pnp
 .pnp.js
+.yarn/install-state.gz
 
 # Next.js
 /.next/
@@ -40,3 +41,7 @@ next-env.d.ts
 # CLI build artifacts
 /cli/dist/
 /cli/gateway/
+
+# VitePress build output (when docs branch files exist)
+docs/.vitepress/dist/
+docs/.vitepress/cache/
