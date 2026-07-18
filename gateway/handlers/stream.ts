@@ -12,7 +12,16 @@ export async function handleStream(ctx: Context): Promise<Response> {
   }
 
   const modelAlias = body.model
-  const provider = getProviderForAlias(modelAlias)
+  let provider
+  try {
+    provider = getProviderForAlias(modelAlias)
+  } catch (err) {
+    if (err instanceof ProviderError) {
+      return jsonError(err.code, err.message)
+    }
+    return jsonError('provider_error', (err as Error).message)
+  }
+
   if (!provider) {
     return jsonError('model_not_allowed', `Model ${modelAlias} is not allowed`)
   }
@@ -53,7 +62,22 @@ export async function handleStream(ctx: Context): Promise<Response> {
 
 function jsonError(code: string, message: string): Response {
   return new Response(JSON.stringify({ error: { code, message } }), {
-    status: code === 'bad_request' ? 400 : 403,
+    status: errorStatus(code),
     headers: { 'Content-Type': 'application/json' },
   })
+}
+
+function errorStatus(code: string): number {
+  switch (code) {
+    case 'unauthorized':
+      return 401
+    case 'model_not_allowed':
+      return 403
+    case 'quota_exceeded':
+      return 429
+    case 'bad_request':
+      return 400
+    default:
+      return 502
+  }
 }

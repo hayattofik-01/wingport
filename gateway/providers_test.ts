@@ -212,3 +212,16 @@ Deno.test('model not allowed returns 403', async () => {
   const body = await res.json()
   assertEquals(body.error.code, 'model_not_allowed')
 })
+
+Deno.test('missing provider key returns structured 502 instead of crashing', async () => {
+  Deno.env.delete('ANTHROPIC_API_KEY')
+  const res = await app(new Request('http://localhost/v1/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-sonnet' }),
+  }))
+  assertEquals(res.status, 502)
+  const body = await res.json()
+  assertEquals(body.error.code, 'provider_error')
+  assertStringIncludes(body.error.message, 'ANTHROPIC_API_KEY')
+})

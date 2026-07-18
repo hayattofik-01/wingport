@@ -10,7 +10,16 @@ export async function handleGenerate(ctx: Context): Promise<Response> {
   }
 
   const modelAlias = body.model
-  const provider = getProviderForAlias(modelAlias)
+  let provider
+  try {
+    provider = getProviderForAlias(modelAlias)
+  } catch (err) {
+    if (err instanceof ProviderError) {
+      return errorResponse(err.code, err.message)
+    }
+    return errorResponse('provider_error', (err as Error).message)
+  }
+
   if (!provider) {
     return errorResponse('model_not_allowed', `Model ${modelAlias} is not allowed`)
   }
