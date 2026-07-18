@@ -88,8 +88,24 @@ async function parseBody(ctx: Context): Promise<GenerateRequest | undefined> {
 }
 
 function jsonError(code: string, message: string): Response {
+  const status = errorStatus(code)
   return new Response(JSON.stringify({ error: { code, message } }), {
-    status: code === 'bad_request' ? 400 : 403,
+    status,
     headers: { 'Content-Type': 'application/json' },
   })
+}
+
+function errorStatus(code: string): number {
+  switch (code) {
+    case 'unauthorized':
+      return 401
+    case 'model_not_allowed':
+      return 403
+    case 'quota_exceeded':
+      return 429
+    case 'bad_request':
+      return 400
+    default:
+      return 502
+  }
 }
