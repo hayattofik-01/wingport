@@ -9,13 +9,14 @@ Your keys, your database, your users' auth. No middleman.
 
 [Website](https://wingport.dev) · [Docs](./docs) · [Roadmap](#roadmap) · [Early access](https://wingport.dev)
 
-![Status](https://img.shields.io/badge/status-in%20development-orange)
+![Status](https://img.shields.io/badge/status-v0.1%20alpha-orange)
+![Version](https://img.shields.io/badge/v0.1.0--alpha.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Made for Flutter](https://img.shields.io/badge/made%20for-Flutter-02569B)
 
 </div>
 
-> 🚧 **Wingport is pre-1.0 and being built in public.** The API below is the v0.1 design — see the [roadmap](#roadmap) for what's shipped vs. planned. Star the repo to follow along.
+> **v0.1 basics work end to end today** — the hardening roadmap is public in the [issues](https://github.com/hayattofik-01/wingport/issues). PRs welcome.
 
 ---
 
@@ -42,7 +43,11 @@ await for (final chunk in wing.stream(
   model: 'claude-sonnet',
   prompt: 'Summarize my day',
 )) {
-  setState(() => reply += chunk.text);
+  if (chunk.done) {
+    print('Total tokens: ${chunk.usage?.totalTokens}');
+  } else if (chunk.delta case final text?) {
+    setState(() => reply += text);
+  }
 }
 ```
 
@@ -86,37 +91,45 @@ Wingport is **not a hosted proxy**. Everything runs in infrastructure you alread
 | **Zero backend** | `npx wingport init && npx wingport deploy` — that's your whole AI backend |
 | **Your existing auth** | Every request verified with your users' Supabase session. Anonymous sign-ins supported. |
 | **Per-user limits** | Requests/day, tokens/day, burst limits, tiers ("free users get 10 messages") — enforced server-side |
-| **Multi-provider** | Anthropic, OpenAI, Google behind one interface. Switch models by changing a string. |
+| **Multi-provider** | Anthropic + OpenAI today. Google and more behind the same interface later. |
 | **Model aliases** | `'claude-sonnet'` maps server-side to a concrete model ID — upgrade models with **no app-store review** |
 | **Automatic fallback** | Provider down? Requests re-route to your backup automatically |
-| **Mobile-grade streaming** | Survives WiFi↔cellular handoffs, keeps partial output on drops, cancels cleanly, retries sanely |
+| **Streaming** | Server-side SSE passthrough to the Flutter SDK; keeps partial output on drops and cancels cleanly. Hardened lifecycle/backgrounding in #7. |
 | **Typed errors** | Sealed `WingportException` hierarchy — handle every failure at compile time |
 
-## Quickstart (v0.1 design)
+## Quickstart
 
-**1. Deploy the gateway into your Supabase project**
+**1. Create a Supabase project and have an OpenAI or Anthropic key ready.**
+
+**2. Deploy the gateway into your Supabase project**
 
 ```bash
+npm install -D wingport
 npx wingport init
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+# edit wingport.config.ts if needed
+export ANTHROPIC_API_KEY=sk-ant-...
+export OPENAI_API_KEY=sk-...
 npx wingport deploy
 ```
 
-**2. Configure it — this is your entire backend**
+`npx wingport init` scaffolds `supabase/functions/wingport/` and a starter `wingport.config.ts`. `npx wingport deploy` sets secrets, runs `supabase db push`, and deploys the edge function.
+
+**3. Configure it — this is your entire backend**
 
 ```ts
 // wingport.config.ts
 import { defineGateway, anthropic, openai } from "wingport";
 
 export default defineGateway({
-  auth: { provider: "supabase" },
+  auth: { provider: "supabase", requireVerifiedEmail: false, allowAnonymous: false },
   providers: [
-    anthropic({ models: { "claude-sonnet": "claude-sonnet-4-6" } }),
-    openai({ models: { "gpt-5-mini": "gpt-5-mini" } }),
+    anthropic({ models: { "claude-sonnet": "claude-sonnet-4-6" }, apiKeySecret: "ANTHROPIC_API_KEY" }),
+    openai({ models: { "gpt-4o": "gpt-4o" }, apiKeySecret: "OPENAI_API_KEY" }),
   ],
   limits: {
-    default: { requestsPerDay: 50, tokensPerDay: 100_000 },
-    tiers: { pro: "unlimited" },
+    default: { requestsPerDay: 50, tokensPerDay: 100_000, requestsPerMinute: 10 },
+    tiers: { pro: { requestsPerDay: 1000, tokensPerDay: 2_000_000 } },
+    tierSource: { jwtClaim: "app_tier" },
   },
   fallback: true,
 });
@@ -140,7 +153,11 @@ final result = await wing.generate(
 // Streaming, with errors your compiler checks
 try {
   await for (final chunk in wing.stream(model: 'claude-sonnet', prompt: q)) {
-    setState(() => reply += chunk.text);
+    if (chunk.done) {
+      // finished
+    } else if (chunk.delta case final text?) {
+      setState(() => reply += text);
+    }
   }
 } on QuotaExceededException catch (e) {
   showUpgradePrompt(resetsAt: e.resetsAt);
@@ -163,12 +180,12 @@ try {
 
 Built in public — this mirrors the project board.
 
-**v0.1 — the core loop**
-- [ ] Supabase deploy via CLI (`init`, `deploy`)
-- [ ] Anthropic + OpenAI providers · generate + streaming
-- [ ] Supabase JWT auth · per-user request/token quotas
-- [ ] Usage metering to your Postgres
-- [ ] Dart SDK: `generate`, `stream`, sealed errors, cancellation, retry-with-partial
+**v0.1 — the core loop (shipped in 0.1.0-alpha.1)**
+- [x] Supabase deploy via CLI (`init`, `deploy`)
+- [x] Anthropic + OpenAI providers · generate + streaming
+- [x] Supabase JWT auth · per-user request/token quotas
+- [x] Usage metering to your Postgres
+- [x] Dart SDK: `generate`, `stream`, `quota`, sealed errors, cancellation, retry-with-partial
 
 **v0.2** — Google provider · stream resume · spend-caps plugin · `wingport doctor`
 
