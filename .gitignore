@@ -40,3 +40,7 @@ next-env.d.ts
 # CLI build artifacts
 /cli/dist/
 /cli/gateway/
+
+# VitePress build output
+docs/.vitepress/dist/
+docs/.vitepress/cache/

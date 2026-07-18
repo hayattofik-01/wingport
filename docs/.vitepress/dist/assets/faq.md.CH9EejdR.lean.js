@@ -1,1 +1,0 @@
-import{_ as t,o,c as r,a2 as a}from"./chunks/framework.CHeM0PsO.js";const l=JSON.parse('{"title":"FAQ","description":"","frontmatter":{"title":"FAQ"},"headers":[],"relativePath":"faq.md","filePath":"faq.md"}'),s={name:"faq.md"};function n(i,e,p,d,c,u){return o(),r("div",null,[...e[0]||(e[0]=[a("",13)])])}const g=t(s,[["render",n]]);export{l as __pageData,g as default};
