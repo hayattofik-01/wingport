@@ -1,8 +1,46 @@
-// Wingport gateway entry point.
-// Ticket T2 will implement the HTTP handlers and provider adapters.
+import type { Context, Middleware } from './types.ts'
+import { router } from './router.ts'
 
-console.log("Wingport gateway scaffold");
+const middlewares: Middleware[] = [
+  // T3: auth middleware will be inserted here.
+  // T4: quota middleware will be inserted here.
+  router,
+]
+
+function compose(stack: Middleware[]): Middleware {
+  return (ctx: Context, next: () => Promise<Response>) => {
+    let index = -1
+
+    function dispatch(i: number): Promise<Response> {
+      if (i <= index) {
+        return Promise.reject(new Error('next() called multiple times'))
+      }
+      index = i
+      const fn = stack[i] ?? next
+      return fn(ctx, () => dispatch(i + 1))
+    }
+
+    return dispatch(0)
+  }
+}
+
+const handler = compose(middlewares)
+
+export function app(request: Request): Promise<Response> {
+  const url = new URL(request.url)
+  const ctx: Context = { request, url }
+  return handler(ctx, () =>
+    Promise.resolve(
+      new Response(JSON.stringify({ error: { code: 'bad_request', message: 'Not found' } }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+  )
+}
 
 if (import.meta.main) {
-  Deno.serve({ port: 8000 }, () => new Response("Wingport"));
+  const port = Number(Deno.env.get('PORT') ?? '8000')
+  Deno.serve({ port }, app)
+  console.log(`Wingport gateway listening on http://localhost:${port}`)
 }
