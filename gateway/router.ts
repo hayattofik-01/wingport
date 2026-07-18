@@ -6,11 +6,11 @@ export const router: Middleware = (ctx, next) => {
   const { pathname } = ctx.url
   const method = ctx.request.method
 
-  if (method === 'POST' && pathname === '/v1/generate') {
+  if (method === 'POST' && pathname.endsWith('/v1/generate')) {
     return handleGenerate(ctx)
   }
 
-  if (method === 'POST' && pathname === '/v1/stream') {
+  if (method === 'POST' && pathname.endsWith('/v1/stream')) {
     return handleStream(ctx)
   }
 

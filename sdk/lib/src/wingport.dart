@@ -30,9 +30,8 @@ class Wingport {
 
   /// Creates a Wingport client from a [SupabaseClient].
   ///
-  /// The gateway endpoint is derived from `supabaseUrl` as
-  /// `<supabaseUrl>/functions/v1/wingport` and tokens are read from
-  /// `supabase.auth.currentSession.accessToken` on every request.
+  /// The gateway endpoint is derived from the Supabase Functions URL and tokens
+  /// are read from `supabase.auth.currentSession.accessToken` on every request.
   factory Wingport.supabase(
     SupabaseClient client, {
     WingportOptions? options,
@@ -109,8 +108,9 @@ class Wingport {
     Map<String, dynamic> body, {
     CancellationToken? cancel,
   }) async {
+    final ownsClient = _client == null;
     final client = _client ?? http.Client();
-    final request = http.Request('POST', endpoint.resolve('/v1/stream'))
+    final request = http.Request('POST', _buildUri('/v1/stream'))
       ..headers.addAll(await _headers())
       ..body = jsonEncode(body);
 
@@ -134,15 +134,18 @@ class Wingport {
 
       final parser = SseParser();
       final partialBuffer = StringBuffer();
-      StreamSubscription<List<int>>? subscription;
+      StreamSubscription<String>? subscription;
 
       void dispose() {
         subscription?.cancel();
-        client.close();
+        if (ownsClient) client.close();
       }
 
-      subscription = response.stream.listen(
-        (bytes) {
+      // utf8.decoder preserves partial multi-byte characters across chunks.
+      final decodedStream = response.stream.transform(utf8.decoder);
+
+      subscription = decodedStream.listen(
+        (decoded) {
           if (cancel?.isCancelled ?? false) {
             dispose();
             controller.addError(RequestCancelledException());
@@ -150,8 +153,6 @@ class Wingport {
             return;
           }
 
-          // Decode incrementally; [Utf8Decoder] maintains state across chunks.
-          final decoded = _utf8Decoder.convert(bytes);
           parser.append(decoded);
 
           for (final event in parser.events()) {
@@ -215,7 +216,7 @@ class Wingport {
         cancelOnError: false,
       );
     } catch (err) {
-      client.close();
+      if (ownsClient) client.close();
       if (!controller.isClosed) {
         controller.addError(_mapError(err));
         controller.close();
@@ -248,6 +249,12 @@ class Wingport {
     return body;
   }
 
+  Uri _buildUri(String path) {
+    final basePath = endpoint.path.replaceAll(RegExp(r'/+$'), '');
+    final route = path.startsWith('/') ? path : '/$path';
+    return endpoint.replace(path: '$basePath$route');
+  }
+
   Future<String> _postJson(
     String path,
     Map<String, dynamic> body, {
@@ -267,7 +274,7 @@ class Wingport {
 
       final response = await client
           .post(
-            endpoint.resolve(path),
+            _buildUri(path),
             headers: headers,
             body: jsonEncode(body),
           )
@@ -393,4 +400,3 @@ class Wingport {
 }
 
 final _random = Random.secure();
-final _utf8Decoder = const Utf8Decoder(allowMalformed: true);
