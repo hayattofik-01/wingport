@@ -1,7 +1,8 @@
 /// Wingport Dart SDK.
 ///
-/// Tickets T7 and later implement the full client and exception hierarchy.
+/// Open-source AI layer for Flutter apps.
 library;
 
-/// Placeholder for the scaffold.
-int scaffoldValue() => 1;
+export 'src/exceptions.dart';
+export 'src/models.dart';
+export 'src/wingport.dart';
