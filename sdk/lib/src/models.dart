@@ -100,14 +100,18 @@ class WingQuota {
 
 /// SDK options.
 class WingportOptions {
+  final Duration connectTimeout;
+  final Duration chunkTimeout;
   final int maxRetries;
-  final Duration timeout;
   final Map<String, String>? headers;
+  final void Function(String)? logger;
 
   const WingportOptions({
-    this.maxRetries = 3,
-    this.timeout = const Duration(seconds: 30),
+    this.connectTimeout = const Duration(seconds: 10),
+    this.chunkTimeout = const Duration(seconds: 30),
+    this.maxRetries = 2,
     this.headers,
+    this.logger,
   });
 }
 
